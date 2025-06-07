@@ -28,7 +28,6 @@ interface ShoppingListMember {
   email: string;
   list_id: string;
   role: "owner" | "member";
-  user_id: string;
 }
 
 const ShoppingListDetailsPage = () => {
@@ -143,20 +142,6 @@ const ShoppingListDetailsPage = () => {
     }
   };
 
-  const removeMember = async (memberId: string) => {
-    const { error } = await supabase
-      .from("shopping_list_members")
-      .delete()
-      .eq("id", memberId);
-
-    if (error) {
-      setToast({ message: "Błąd podczas usuwania użytkownika.", type: "error" });
-    } else {
-      setToast({ message: "Użytkownik został usunięty.", type: "success" });
-      fetchMembers();
-    }
-  };
-
   const addItem = (item: ShoppingItem) => {
     setItems((prev) => [...prev, item]);
   };
@@ -241,7 +226,6 @@ const ShoppingListDetailsPage = () => {
         emailError={emailError}
         onEmailChange={setInviteEmail}
         onInvite={inviteMember}
-        onRemove={removeMember}
       />
 
       <AddItemForm listId={id!} onItemAdded={addItem} />
