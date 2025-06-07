@@ -2,13 +2,20 @@ import { useState } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import Button from "../ui/Button";
 import Input from "../ui/Input";
+import ProductAutocomplete from "./ProductAutocomplete";
+
+interface Product {
+    name: string;
+    category: string;
+}
 
 interface Props {
     listId: string;
+    productsDb: Product[];
     onItemAdded?: (item: any) => void;
 }
 
-const AddItemForm = ({ listId, onItemAdded }: Props) => {
+const AddItemForm = ({ listId, productsDb, onItemAdded }: Props) => {
     const [name, setName] = useState("");
     const [quantity, setQuantity] = useState("");
     const [unit, setUnit] = useState("szt");
@@ -54,12 +61,15 @@ const AddItemForm = ({ listId, onItemAdded }: Props) => {
 
     return (
         <form onSubmit={handleSubmit} className="space-y-2" noValidate>
-            <Input
-                placeholder="Nazwa"
+            <ProductAutocomplete
+                productsDb={productsDb}
                 value={name}
-                onChange={(e) => setName(e.target.value)}
-                error={errors.name}
+                onChange={(val) => setName(val)}
+                onSelect={(val) => setName(val)}
             />
+            {errors.name && (
+                <p className="text-red-500 text-xs mt-1">{errors.name}</p>
+            )}
             <Input
                 placeholder="Ilość"
                 type="number"
