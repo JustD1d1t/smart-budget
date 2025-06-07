@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import AddItemForm from "../../components/shopping-list/AddItemForm";
-import ProductAutocomplete from "../../components/shopping-list/ProductAutocomplete";
 import Accordion from "../../components/ui/Accordion";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
@@ -266,10 +265,10 @@ const ShoppingListDetailsPage = () => {
         )}
       </Accordion>
 
-      <AddItemForm listId={id!} onItemAdded={addItem} />
-      <ProductAutocomplete
+      <AddItemForm
+        listId={id!}
         productsDb={flatProducts}
-        onSelect={(value) => console.log("Wybrano:", value)}
+        onItemAdded={addItem}
       />
 
       {loading ? (
