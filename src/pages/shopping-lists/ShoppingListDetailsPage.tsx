@@ -1,19 +1,17 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import AddItemForm from "../../components/shopping-list/AddItemForm";
-import ProductAutocomplete from "../../components/shopping-list/ProductAutocomplete";
 import Accordion from "../../components/ui/Accordion";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import Modal from "../../components/ui/Modal";
 import Toast from "../../components/ui/Toast";
-import { productsDb } from "../../data/productsDb";
 import { supabase } from "../../lib/supabaseClient";
-import { flattenProductsDb } from "../../utils/flattenProductsDb";
 
 interface ShoppingItem {
   id: string;
   name: string;
+  category: string;
   quantity: number;
   unit: string;
   bought: boolean;
@@ -42,8 +40,9 @@ const ShoppingListDetailsPage = () => {
   const [emailError, setEmailError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type?: "error" | "success" } | null>(null);
   const [isOwner, setIsOwner] = useState(false);
-
-  const flatProducts = flattenProductsDb(productsDb);
+  const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<"name" | "category">("name");
+  const [groupedView, setGroupedView] = useState(false);
 
   const fetchListDetails = async () => {
     const { data, error } = await supabase
@@ -63,8 +62,7 @@ const ShoppingListDetailsPage = () => {
       .eq("list_id", id);
 
     if (!error && data) {
-      const sorted = data.sort((a, b) => a.name.localeCompare(b.name));
-      setItems(sorted);
+      setItems(data);
     }
     setLoading(false);
   };
@@ -85,7 +83,6 @@ const ShoppingListDetailsPage = () => {
       setIsOwner(!!owner);
     }
   };
-
 
   useEffect(() => {
     if (id) {
@@ -126,7 +123,6 @@ const ShoppingListDetailsPage = () => {
       setItems((prev) =>
         prev
           .map((item) => (item.id === editingItem.id ? editingItem : item))
-          .sort((a, b) => a.name.localeCompare(b.name))
       );
       setEditingItem(null);
     }
@@ -147,7 +143,7 @@ const ShoppingListDetailsPage = () => {
   };
 
   const addItem = (item: ShoppingItem) => {
-    setItems((prev) => [...prev, item].sort((a, b) => a.name.localeCompare(b.name)));
+    setItems((prev) => [...prev, item]);
   };
 
   const isValidEmail = (email: string) =>
@@ -166,51 +162,40 @@ const ShoppingListDetailsPage = () => {
 
     setEmailError(null);
 
-    // Szukamy użytkownika po mailu
-    const { data: users, error: userError } = await supabase
-      .from("users") // widok z auth.users
+    const { data: users } = await supabase
+      .from("users")
       .select("id, email")
       .eq("email", inviteEmail);
 
-    if (userError || !users || users.length === 0) {
-      setToast({
-        message: "Nie znaleziono użytkownika z tym adresem e-mail.",
-        type: "error",
-      });
+    if (!users || users.length === 0) {
+      setToast({ message: "Nie znaleziono użytkownika.", type: "error" });
       return;
     }
 
     const user = users[0];
 
-    // Sprawdź czy już jest na liście
-    const { data: existing, error: existingError } = await supabase
+    const { data: existing } = await supabase
       .from("shopping_list_members")
       .select("id")
       .eq("list_id", id)
       .eq("user_id", user.id);
-
-    if (existingError) {
-      setToast({ message: "Błąd przy sprawdzaniu członka listy.", type: "error" });
-      return;
-    }
 
     if (existing && existing.length > 0) {
       setToast({ message: "Ten użytkownik już należy do listy.", type: "error" });
       return;
     }
 
-    // Dodaj członka z emailem
-    const { error: insertError } = await supabase
+    const { error } = await supabase
       .from("shopping_list_members")
       .insert({
         list_id: id,
         user_id: user.id,
-        email: user.email, // kopiujemy email do członków listy
+        email: user.email,
         role: "member",
       });
 
-    if (insertError) {
-      setToast({ message: "Błąd przy zapraszaniu użytkownika.", type: "error" });
+    if (error) {
+      setToast({ message: "Błąd przy zapraszaniu.", type: "error" });
     } else {
       setInviteEmail("");
       setToast({ message: "Użytkownik zaproszony!", type: "success" });
@@ -218,6 +203,14 @@ const ShoppingListDetailsPage = () => {
     }
   };
 
+  const filteredItems = items
+    .filter((item) => filterCategory === "all" || item.category === filterCategory)
+    .sort((a, b) => {
+      if (sortBy === "name") return a.name.localeCompare(b.name);
+      return a.category.localeCompare(b.category) || a.name.localeCompare(b.name);
+    });
+
+  const categories = [...new Set(items.map((item) => item.category))];
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -225,13 +218,8 @@ const ShoppingListDetailsPage = () => {
         Szczegóły listy zakupowej{list ? `: ${list.name}` : ""}
       </h1>
 
-      {toast && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast(null)}
-        />
-      )}
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
       <Accordion title="Współtwórcy">
         {isOwner && (
           <div className="mb-4">
@@ -244,69 +232,92 @@ const ShoppingListDetailsPage = () => {
             <Button onClick={inviteMember} className="mt-2">Zaproś</Button>
           </div>
         )}
-        {members.length > 0 && (
-          <div className="mt-6 mb-4">
-            <h2 className="text-lg font-semibold mb-2">Współtwórcy listy:</h2>
-            <ul className="space-y-1">
-              {members.map((member) => (
-                <li
-                  key={member.id}
-                  className="flex justify-between items-center border p-2 rounded"
-                >
-                  <span>{member.email}</span>
-                  {isOwner && member.role !== "owner" && (
-                    <Button variant="danger" onClick={() => removeMember(member.id)}>
-                      Usuń
-                    </Button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+        <ul className="space-y-1 mt-4">
+          {members.map((member) => (
+            <li key={member.id} className="flex justify-between items-center border p-2 rounded">
+              <span>{member.email}</span>
+              {isOwner && member.role !== "owner" && (
+                <Button variant="danger" onClick={() => {/* removeMember() */ }}>Usuń</Button>
+              )}
+            </li>
+          ))}
+        </ul>
       </Accordion>
 
       <AddItemForm listId={id!} onItemAdded={addItem} />
-      <ProductAutocomplete
-        productsDb={flatProducts}
-        onSelect={(value) => console.log("Wybrano:", value)}
-      />
+
+      <div className="flex items-center gap-2 mt-6 mb-2">
+        <Button onClick={() => setGroupedView(!groupedView)} className="text-sm w-xl">
+          {groupedView ? "Pokaż jako listę" : "Pogrupuj po kategoriach"}
+        </Button>
+        <select
+          value={filterCategory}
+          onChange={(e) => setFilterCategory(e.target.value)}
+          className="border p-2 rounded text-sm"
+        >
+          <option value="all">Wszystkie kategorie</option>
+          {categories.map((cat) => (
+            <option key={cat} value={cat}>{cat}</option>
+          ))}
+        </select>
+        {!groupedView && <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as "name" | "category")}
+          className="border p-2 rounded text-sm"
+        >
+          <option value="name">Sortuj alfabetycznie</option>
+          <option value="category">Sortuj po kategorii</option>
+        </select>
+        }
+      </div>
 
       {loading ? (
         <p>Ładowanie</p>
-      ) : items.length === 0 ? (
-        <p>Brak produktów na tej liście.</p>
+      ) : filteredItems.length === 0 ? (
+        <p>Brak produktów</p>
+      ) : groupedView ? (
+        categories
+          .filter((cat) => filterCategory === "all" || cat === filterCategory)
+          .map((cat) => (
+            <Accordion key={cat} title={cat}>
+              <ul className="space-y-2">
+                {filteredItems.filter((item) => item.category === cat).map((item) => (
+                  <li key={item.id} className="flex justify-between items-center">
+                    <div onClick={() => toggleItem(item.id, item.bought)} className="cursor-pointer flex gap-2">
+                      <input type="checkbox" checked={item.bought} readOnly />
+                      <span className={item.bought ? "line-through text-gray-500" : ""}>
+                        {item.name} ({item.quantity} {item.unit})
+                      </span>
+                    </div>
+                    <button className="text-sm text-blue-500 hover:underline" onClick={() => setEditingItem(item)}>
+                      Edytuj
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </Accordion>
+          ))
       ) : (
-        <>
-          <ul className="space-y-2 mt-4">
-            {items.map((item) => (
-              <li
-                key={item.id}
-                className="flex items-center gap-2 justify-between"
-              >
-                <div
-                  className="flex items-center gap-2 cursor-pointer"
-                  onClick={() => toggleItem(item.id, item.bought)}
-                >
-                  <input type="checkbox" checked={item.bought} readOnly />
-                  <span className={item.bought ? "line-through text-gray-500" : ""}>
-                    {item.name} ({item.quantity} {item.unit})
-                  </span>
-                </div>
-                <button
-                  className="text-sm text-blue-500 hover:underline"
-                  onClick={() => setEditingItem(item)}
-                >
-                  Edytuj
-                </button>
-              </li>
-            ))}
-          </ul>
-          <div className="mt-4 text-right">
-            <Button onClick={handleDeleteBoughtItems} variant="danger">Usuń kupione</Button>
-          </div>
-        </>
+        <ul className="space-y-2">
+          {filteredItems.map((item) => (
+            <li key={item.id} className="flex justify-between items-center">
+              <div onClick={() => toggleItem(item.id, item.bought)} className="cursor-pointer flex gap-2">
+                <input type="checkbox" checked={item.bought} readOnly />
+                <span className={item.bought ? "line-through text-gray-500" : ""}>
+                  {item.name} ({item.category}) - {item.quantity} {item.unit}
+                </span>
+              </div>
+              <button className="text-sm text-blue-500 hover:underline" onClick={() => setEditingItem(item)}>
+                Edytuj
+              </button>
+            </li>
+          ))}
+        </ul>
       )}
+
+      <div className="mt-4 text-right">
+        <Button onClick={handleDeleteBoughtItems} variant="danger">Usuń kupione</Button>
+      </div>
 
       {editingItem && (
         <Modal onClose={() => setEditingItem(null)}>
@@ -315,27 +326,18 @@ const ShoppingListDetailsPage = () => {
             <Input
               placeholder="Nazwa"
               value={editingItem.name}
-              onChange={(e) =>
-                setEditingItem({ ...editingItem, name: e.target.value })
-              }
+              onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
             />
             <Input
               placeholder="Ilość"
               type="number"
               value={String(editingItem.quantity)}
-              onChange={(e) =>
-                setEditingItem({
-                  ...editingItem,
-                  quantity: Number(e.target.value),
-                })
-              }
+              onChange={(e) => setEditingItem({ ...editingItem, quantity: Number(e.target.value) })}
             />
             <select
               value={editingItem.unit}
-              onChange={(e) =>
-                setEditingItem({ ...editingItem, unit: e.target.value })
-              }
-              className="w-full p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-black"
+              onChange={(e) => setEditingItem({ ...editingItem, unit: e.target.value })}
+              className="w-full p-2 border rounded text-sm focus:outline-none"
             >
               <option value="szt">szt</option>
               <option value="kg">kg</option>

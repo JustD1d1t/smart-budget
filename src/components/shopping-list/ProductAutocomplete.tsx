@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Input from "../ui/Input";
 
 type Product = {
     name: string;
@@ -7,62 +8,88 @@ type Product = {
 
 type Props = {
     productsDb: Product[];
-    onSelect: (productName: string) => void;
+    value: string;
+    onChange: (val: string) => void;
+    onClick: (name: string) => void;
+    error?: string;
 };
 
-export default function ProductAutocomplete({ productsDb, onSelect }: Props) {
-    const [query, setQuery] = useState("");
+export default function ProductAutocomplete({
+    productsDb,
+    value,
+    onChange,
+    onClick,
+    error
+}: Props) {
     const [suggestions, setSuggestions] = useState<Product[]>([]);
+    const [showSuggestions, setShowSuggestions] = useState(false);
 
     useEffect(() => {
-        if (query.length < 3) {
+        const safeValue = value || "";
+
+        if (safeValue.length < 3) {
             setSuggestions([]);
+            setShowSuggestions(false);
             return;
         }
 
         const filtered = productsDb
             .filter((product) =>
-                product.name.toLowerCase().includes(query.toLowerCase())
+                product.name.toLowerCase().includes(safeValue.toLowerCase())
             )
             .slice(0, 5);
 
-        // Jeśli jest mniej niż 5 wyników i brak dokładnej zgodności – dodaj opcję niestandardową
         const hasExactMatch = filtered.some(
-            (p) => p.name.toLowerCase() === query.toLowerCase()
+            (p) => p.name.toLowerCase() === safeValue.toLowerCase()
         );
+        console.log(hasExactMatch);
 
         if (filtered.length < 5 && !hasExactMatch) {
             setSuggestions([
-                { name: query, category: "niestandardowy wpis" },
+                { name: safeValue, category: "niestandardowy wpis" },
                 ...filtered,
             ]);
         } else {
             setSuggestions(filtered);
         }
-    }, [query, productsDb]);
+
+        if (!hasExactMatch) {
+            setShowSuggestions(true);
+        } else {
+            setShowSuggestions(false);
+        }
+
+    }, [value, productsDb]);
+
+
+    const setSelectedItem = (item: Product) => {
+        onChange(item.name);
+        onClick(item.name);
+        setSuggestions([]);
+        setShowSuggestions(false);
+    };
 
     return (
-        <div className="w-full max-w-md">
-            <input
+        <div className="w-full relative">
+            <Input
                 type="text"
-                className="w-full border rounded p-2"
                 placeholder="Wpisz produkt..."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                error={error}
             />
-            {suggestions.length > 0 && (
-                <ul className="mt-2 border rounded bg-white shadow">
+            {showSuggestions && suggestions.length > 0 && (
+                <ul className="mt-2 border rounded bg-white shadow absolute left-0 right-0 z-10">
                     {suggestions.map((product, idx) => (
                         <li
                             key={idx}
                             className="p-2 cursor-pointer hover:bg-gray-100"
-                            onClick={() => {
-                                onSelect(product.name);
-                                setQuery(""); // reset inputa po wyborze
-                                setSuggestions([]);
-                            }}
+                            onClick={() => setSelectedItem(product)}
                         >
-                            {product.name} <span className="text-sm text-gray-500">({product.category})</span>
+                            {product.name}{" "}
+                            <span className="text-sm text-gray-500">
+                                ({product.category})
+                            </span>
                         </li>
                     ))}
                 </ul>

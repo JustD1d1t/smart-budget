@@ -1,5 +1,8 @@
 import { useState } from "react";
+import ProductAutocomplete from "../../components/shopping-list/ProductAutocomplete";
+import { productsDb } from "../../data/productsDb";
 import { supabase } from "../../lib/supabaseClient";
+import { flattenProductsDb } from "../../utils/flattenProductsDb";
 import Button from "../ui/Button";
 import Input from "../ui/Input";
 
@@ -13,6 +16,8 @@ const AddItemForm = ({ listId, onItemAdded }: Props) => {
     const [quantity, setQuantity] = useState("");
     const [unit, setUnit] = useState("szt");
     const [errors, setErrors] = useState<{ name?: string; quantity?: string }>({});
+
+    const flatProducts = flattenProductsDb(productsDb);
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -28,12 +33,19 @@ const AddItemForm = ({ listId, onItemAdded }: Props) => {
 
         setErrors({});
 
+        const matchedProduct = flatProducts.find(
+            (product) => product.name.toLowerCase() === name.toLowerCase()
+        );
+
+        const category = matchedProduct?.category ?? "niestandardowy wpis";
+
         try {
             const { data, error } = await supabase
                 .from("shopping_items")
                 .insert({
                     list_id: listId,
                     name,
+                    category,
                     quantity: Number(quantity),
                     unit,
                     bought: false,
@@ -52,12 +64,15 @@ const AddItemForm = ({ listId, onItemAdded }: Props) => {
         }
     };
 
+
     return (
         <form onSubmit={handleSubmit} className="space-y-2" noValidate>
-            <Input
-                placeholder="Nazwa"
+
+            <ProductAutocomplete
+                productsDb={flatProducts}
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(val) => setName(val)}
+                onClick={(val) => setName(val)}
                 error={errors.name}
             />
             <Input
