@@ -5,10 +5,12 @@ import { useUserStore } from "./stores/userStore";
 
 // Pages
 import Login from "./pages/Login";
+import NewRecipePage from "./pages/recipes/NewRecipePage";
+import RecipeDetailsPage from "./pages/recipes/RecipeDetailsPage";
+import RecipesListPage from "./pages/recipes/RecipesListPage";
 import Register from "./pages/Register";
 import ShoppingListDetailsPage from "./pages/shopping-lists/ShoppingListDetailsPage";
 import ShoppingLists from "./pages/shopping-lists/ShoppingListsPage";
-// import Recipes from "./pages/recipes";
 // import Expenses from "./pages/expenses";
 // import Pantry from "./pages/pantry";
 
@@ -91,15 +93,23 @@ export default function App() {
             }
           />
 
-          {/* 
           <Route
             path="/recipes"
             element={
               <ProtectedRoute>
-                <Recipes />
+                <RecipesListPage />
               </ProtectedRoute>
             }
           />
+
+          <Route path="/recipes/new" element={
+            <ProtectedRoute>
+              <NewRecipePage />
+            </ProtectedRoute>
+          } />
+          <Route path="/recipes/:id" element={<RecipeDetailsPage />} />
+
+          {/*
           <Route
             path="/expenses"
             element={

@@ -7,7 +7,7 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
 
 const Input = ({ error, className, ...props }: InputProps) => {
     return (
-        <div className="w-full">
+        <>
             <input
                 {...props}
                 className={clsx(
@@ -19,7 +19,7 @@ const Input = ({ error, className, ...props }: InputProps) => {
                 )}
             />
             {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
-        </div>
+        </>
     );
 };
 

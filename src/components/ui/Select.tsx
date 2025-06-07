@@ -1,18 +1,32 @@
-interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
-    options: { value: string; label: string }[];
-}
+import { ChangeEvent } from "react";
 
-export const Select = ({ options, ...props }: SelectProps) => {
+type Props = {
+    value: string;
+    onChange: (e: ChangeEvent<HTMLSelectElement>) => void;
+    options: string[];
+    placeholder?: string;
+    className?: string;
+};
+
+export default function Select({
+    value,
+    onChange,
+    options,
+    placeholder = "-- wybierz --",
+    className = "",
+}: Props) {
     return (
         <select
-            {...props}
-            className="w-full p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-black"
+            value={value}
+            onChange={onChange}
+            className={`border rounded px-3 py-2 ${className}`}
         >
-            {options.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                    {opt.label}
+            <option value="">{placeholder}</option>
+            {options.map((option) => (
+                <option key={option} value={option}>
+                    {option}
                 </option>
             ))}
         </select>
     );
-};
+}
