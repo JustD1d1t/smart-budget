@@ -42,7 +42,6 @@ export default function ProductAutocomplete({
         const hasExactMatch = filtered.some(
             (p) => p.name.toLowerCase() === safeValue.toLowerCase()
         );
-        console.log(hasExactMatch);
 
         if (filtered.length < 5 && !hasExactMatch) {
             setSuggestions([

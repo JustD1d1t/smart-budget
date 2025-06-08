@@ -1,12 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import ProductAutocomplete from "../../components/shopping-list/ProductAutocomplete";
+import IngredientListEditor from "../../components/recipes/IngredientListEditor";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
-import Select from "../../components/ui/Select";
 import Textarea from "../../components/ui/Textarea";
-import { productsDb } from "../../data/productsDb";
-import { flattenProductsDb } from "../../utils/flattenProductsDb";
 
 type Ingredient = {
   name: string;
@@ -20,14 +17,18 @@ type IngredientError = {
   unit?: string;
 };
 
-const UNITS = ["g", "kg", "ml", "l", "szt.", "łyżka", "łyżeczka", "szklanka"];
+type Recipe = {
+  id: string;
+  name: string;
+  description: string;
+  ingredients: Ingredient[];
+};
 
 export default function NewRecipePage() {
   const navigate = useNavigate();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [ingredients, setIngredients] = useState<Ingredient[]>([
-    { name: "", quantity: 1, unit: "" },
     { name: "", quantity: 1, unit: "" },
   ]);
   const [errors, setErrors] = useState<{
@@ -39,9 +40,6 @@ export default function NewRecipePage() {
     ingredientFields: [],
   });
 
-
-  const flatProducts = flattenProductsDb(productsDb).filter(item => item.category === 'żywność');
-
   const handleAddIngredient = () => {
     setIngredients([...ingredients, { name: "", quantity: 1, unit: "" }]);
     setErrors((prev) => ({
@@ -50,14 +48,12 @@ export default function NewRecipePage() {
     }));
   };
 
-  const handleChange = (
-    index: number,
-    field: keyof Ingredient,
-    value: string
-  ) => {
-    const updated = [...ingredients];
-    updated[index][field] = field === "quantity" ? Number(value) : value;
-    setIngredients(updated);
+  const handleRemoveIngredient = (index: number) => {
+    setIngredients((prev) => prev.filter((_, i) => i !== index));
+    setErrors((prev) => ({
+      ...prev,
+      ingredientFields: prev.ingredientFields.filter((_, i) => i !== index),
+    }));
   };
 
   const handleSubmit = () => {
@@ -94,7 +90,7 @@ export default function NewRecipePage() {
           err.quantity = "Podaj poprawną ilość (> 0)";
         }
 
-        if (!i.unit) {
+        if (!i.unit.trim()) {
           err.unit = "Wybierz jednostkę";
         }
       }
@@ -113,7 +109,7 @@ export default function NewRecipePage() {
     setErrors(newErrors);
     if (hasAnyErrors) return;
 
-    const newRecipe = {
+    const newRecipe: Recipe = {
       id: crypto.randomUUID(),
       name: trimmedName,
       description: trimmedDescription,
@@ -147,37 +143,11 @@ export default function NewRecipePage() {
 
         <h2 className="font-semibold text-lg mt-4">Składniki</h2>
 
-        {ingredients.map((ingredient, idx) => (
-          <div key={idx} className="flex flex-col gap-1 mb-2">
-            <div className="flex gap-2 items-start">
-              <ProductAutocomplete
-                productsDb={flatProducts}
-                value={ingredient.name}
-                onChange={(value) => handleChange(idx, "name", value)}
-                onClick={(value) => handleChange(idx, "name", value)} // lub nic jeśli nie potrzebujesz osobno
-              />
-              <Input
-                placeholder="Ilość"
-                type="number"
-                value={ingredient.quantity}
-                onChange={(e) => handleChange(idx, "quantity", e.target.value)}
-                className="w-24"
-                error={errors.ingredientFields[idx]?.quantity}
-              />
-              <Select
-                value={ingredient.unit}
-                onChange={(e) => handleChange(idx, "unit", e.target.value)}
-                options={UNITS}
-                className="w-32"
-              />
-            </div>
-            {errors.ingredientFields[idx]?.unit && (
-              <p className="text-sm text-red-500 ml-[calc(100%_-_160px)]">
-                {errors.ingredientFields[idx]?.unit}
-              </p>
-            )}
-          </div>
-        ))}
+        <IngredientListEditor
+          ingredients={ingredients}
+          setIngredients={setIngredients}
+          errors={errors.ingredientFields}
+        />
 
         {errors.ingredients && (
           <p className="text-sm text-red-500">{errors.ingredients}</p>
