@@ -1,9 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import ProductAutocomplete from "../../components/shopping-list/ProductAutocomplete";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import Select from "../../components/ui/Select";
 import Textarea from "../../components/ui/Textarea";
+import { productsDb } from "../../data/productsDb";
+import { flattenProductsDb } from "../../utils/flattenProductsDb";
 
 type Ingredient = {
   name: string;
@@ -35,6 +38,9 @@ export default function NewRecipePage() {
   }>({
     ingredientFields: [],
   });
+
+
+  const flatProducts = flattenProductsDb(productsDb).filter(item => item.category === 'żywność');
 
   const handleAddIngredient = () => {
     setIngredients([...ingredients, { name: "", quantity: 1, unit: "" }]);
@@ -144,11 +150,11 @@ export default function NewRecipePage() {
         {ingredients.map((ingredient, idx) => (
           <div key={idx} className="flex flex-col gap-1 mb-2">
             <div className="flex gap-2 items-start">
-              <Input
-                placeholder="Nazwa"
+              <ProductAutocomplete
+                productsDb={flatProducts}
                 value={ingredient.name}
-                onChange={(e) => handleChange(idx, "name", e.target.value)}
-                className="w-full"
+                onChange={(value) => handleChange(idx, "name", value)}
+                onClick={(value) => handleChange(idx, "name", value)} // lub nic jeśli nie potrzebujesz osobno
               />
               <Input
                 placeholder="Ilość"

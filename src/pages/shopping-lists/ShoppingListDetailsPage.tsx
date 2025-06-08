@@ -21,6 +21,7 @@ interface ShoppingItem {
 interface ShoppingList {
   id: string;
   name: string;
+  recipes?: Recipe[];
 }
 
 interface ShoppingListMember {
@@ -29,6 +30,17 @@ interface ShoppingListMember {
   list_id: string;
   role: "owner" | "member";
   user_id: string;
+}
+
+interface Recipe {
+  id: string;
+  name: string;
+  description?: string;
+  ingredients: {
+    name: string;
+    quantity: number;
+    unit: string;
+  }[];
 }
 
 const ShoppingListDetailsPage = () => {
@@ -53,7 +65,9 @@ const ShoppingListDetailsPage = () => {
       .eq("id", id)
       .single();
 
-    if (!error) setList(data);
+    if (!error && data) {
+      setList(data);
+    }
   };
 
   const fetchItems = async () => {

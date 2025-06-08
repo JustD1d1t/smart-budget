@@ -7,6 +7,7 @@ interface ShoppingItem {
     quantity: number;
     unit: string;
     bought: boolean;
+    recipe: string;
 }
 
 interface Props {
@@ -26,7 +27,7 @@ const ItemList: React.FC<Props> = ({ items, onToggle, onEdit }) => {
                     >
                         <input type="checkbox" checked={item.bought} readOnly />
                         <span className={item.bought ? "line-through text-gray-500" : ""}>
-                            {item.name} ({item.category}) - {item.quantity} {item.unit}
+                            {item.name} ({item.category}) - {item.quantity} {item.unit} {item.recipe ? ('(' + item.recipe + ')') : ''}
                         </span>
                     </div>
                     <button
