@@ -5,6 +5,7 @@ import Card from "../../components/ui/Card";
 import ShoppingListSelectModal from "../../components/ui/ShoppingListSelectModal";
 import Toast from "../../components/ui/Toast";
 import { supabase } from "../../lib/supabaseClient";
+import { useUserStore } from "../../stores/userStore";
 
 type Ingredient = {
   name: string;
@@ -25,13 +26,29 @@ export default function RecipesListPage() {
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [toast, setToast] = useState<{ message: string; type?: "error" | "success" } | null>(null);
   const navigate = useNavigate();
+  const { user } = useUserStore();
 
   useEffect(() => {
-    const saved = localStorage.getItem("recipes");
-    if (saved) {
-      setRecipes(JSON.parse(saved));
-    }
-  }, []);
+    const fetchRecipes = async () => {
+      if (!user?.id) return;
+
+      const { data, error } = await supabase
+        .from("recipes")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("name");
+
+      if (error) {
+        console.error("Błąd podczas pobierania przepisów:", error.message);
+        setToast({ message: "Nie udało się pobrać przepisów", type: "error" });
+        return;
+      }
+
+      setRecipes(data || []);
+    };
+
+    fetchRecipes();
+  }, [user?.id]);
 
   const handleAddToShoppingList = (recipe: Recipe) => {
     setSelectedRecipe(recipe);
@@ -63,11 +80,19 @@ export default function RecipesListPage() {
     setSelectedRecipe(null);
   };
 
-  const deleteRecipe = (id: string) => {
-    const updated = recipes.filter((r) => r.id !== id);
-    setRecipes(updated);
-    localStorage.setItem("recipes", JSON.stringify(updated));
+  const deleteRecipe = async (id: string) => {
+    const { error } = await supabase.from("recipes").delete().eq("id", id);
+
+    if (error) {
+      console.error("Błąd podczas usuwania przepisu:", error.message);
+      setToast({ message: "Nie udało się usunąć przepisu", type: "error" });
+      return;
+    }
+
+    setRecipes((prev) => prev.filter((r) => r.id !== id));
+    setToast({ message: "Przepis usunięty", type: "success" });
   };
+
 
   return (
     <div className="p-4 max-w-3xl mx-auto">

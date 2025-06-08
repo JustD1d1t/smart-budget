@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Button from "../../components/ui/Button";
+import { supabase } from "../../lib/supabaseClient";
 
 type Ingredient = {
     name: string;
@@ -21,12 +22,25 @@ export default function RecipeDetailsPage() {
     const [recipe, setRecipe] = useState<Recipe | null>(null);
 
     useEffect(() => {
-        const saved = localStorage.getItem("recipes");
-        if (saved) {
-            const list: Recipe[] = JSON.parse(saved);
-            const found = list.find((r) => r.id === id);
-            setRecipe(found || null);
-        }
+        const fetchRecipe = async () => {
+            if (!id) return;
+
+            const { data, error } = await supabase
+                .from("recipes")
+                .select("*")
+                .eq("id", id)
+                .single();
+
+            if (error) {
+                console.error("Błąd podczas pobierania przepisu:", error.message);
+                setRecipe(null);
+                return;
+            }
+
+            setRecipe(data);
+        };
+
+        fetchRecipe();
     }, [id]);
 
     if (!recipe) {

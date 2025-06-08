@@ -4,6 +4,8 @@ import IngredientListEditor from "../../components/recipes/IngredientListEditor"
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import Textarea from "../../components/ui/Textarea";
+import { supabase } from "../../lib/supabaseClient";
+import { useUserStore } from "../../stores/userStore";
 
 type Ingredient = {
   name: string;
@@ -26,6 +28,7 @@ type Recipe = {
 
 export default function NewRecipePage() {
   const navigate = useNavigate();
+  const { user } = useUserStore();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [ingredients, setIngredients] = useState<Ingredient[]>([
@@ -56,7 +59,7 @@ export default function NewRecipePage() {
     }));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const trimmedName = name.trim();
     const trimmedDescription = description.trim();
     const ingredientErrors: IngredientError[] = [];
@@ -84,17 +87,14 @@ export default function NewRecipePage() {
 
     ingredients.forEach((i, index) => {
       const err: IngredientError = {};
-
       if (i.name.trim() !== "") {
         if (isNaN(i.quantity) || i.quantity <= 0) {
           err.quantity = "Podaj poprawną ilość (> 0)";
         }
-
         if (!i.unit.trim()) {
           err.unit = "Wybierz jednostkę";
         }
       }
-
       ingredientErrors[index] = err;
     });
 
@@ -109,16 +109,25 @@ export default function NewRecipePage() {
     setErrors(newErrors);
     if (hasAnyErrors) return;
 
-    const newRecipe: Recipe = {
+    if (!user?.id) {
+      alert("Musisz być zalogowany, aby zapisać przepis.");
+      return;
+    }
+
+    const { error } = await supabase.from("recipes").insert({
       id: crypto.randomUUID(),
       name: trimmedName,
       description: trimmedDescription,
       ingredients: validIngredients,
-    };
+      user_id: user.id,
+    });
 
-    const saved = localStorage.getItem("recipes");
-    const current = saved ? JSON.parse(saved) : [];
-    localStorage.setItem("recipes", JSON.stringify([...current, newRecipe]));
+    if (error) {
+      console.error("Błąd zapisu przepisu:", error.message);
+      alert("Wystąpił błąd podczas zapisu przepisu.");
+      return;
+    }
+
     navigate("/recipes");
   };
 
