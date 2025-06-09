@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import ExpenseFilters from "../../components/expenses/ExpenseFilters";
+import ExpenseItem from "../../components/expenses/ExpenseItem";
 import Button from "../../components/ui/Button";
-import Select from "../../components/ui/Select";
 import { supabase } from "../../lib/supabaseClient";
 import { useUserStore } from "../../stores/userStore";
 
@@ -134,36 +135,16 @@ export default function ExpensesListPage() {
         <div className="p-4 max-w-2xl mx-auto">
             <h1 className="text-2xl font-bold mb-4">📋 Lista wydatków</h1>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <Select
-                    value={filterCategory}
-                    onChange={(e) => setFilterCategory(e.target.value)}
-                    options={CATEGORIES.slice(1)}
-                    placeholder="Filtruj po kategorii"
-                />
-                <Select
-                    value={sortOption}
-                    onChange={(e) =>
-                        changeSortOption(
-                            SORT_OPTIONS.find((o) => o.label === e.target.value)?.value || ""
-                        )
-                    }
-                    options={SORT_OPTIONS.map((o) => o.label)}
-                    placeholder="Sortuj wydatki"
-                />
-                <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="border rounded px-3 py-2 text-sm"
-                />
-                <input
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="border rounded px-3 py-2 text-sm"
-                />
-            </div>
+            <ExpenseFilters
+                filterCategory={filterCategory}
+                onFilterCategoryChange={setFilterCategory}
+                sortOption={sortOption}
+                onSortOptionChange={setSortOption}
+                startDate={startDate}
+                endDate={endDate}
+                onStartDateChange={setStartDate}
+                onEndDateChange={setEndDate}
+            />
 
             {loading ? (
                 <p>Ładowanie...</p>
@@ -177,21 +158,12 @@ export default function ExpensesListPage() {
                         <span colSpan={2}></span>
                     </li>
                     {expenses.map((exp) => (
-                        <li
+                        <ExpenseItem
                             key={exp.id}
-                            className="py-3 grid grid-cols-6 gap-2 text-sm text-left items-center"
-                        >
-                            <span>{exp.store}</span>
-                            <span>{exp.amount.toFixed(2)} zł</span>
-                            <span className="text-gray-500">{exp.date}</span>
-                            <span className="text-gray-400 italic">{exp.category}</span>
-                            <Button variant="ghost" onClick={() => handleEdit(exp.id)}>
-                                ✏️ Edytuj
-                            </Button>
-                            <Button variant="ghost" onClick={() => handleDelete(exp.id)}>
-                                🗑 Usuń
-                            </Button>
-                        </li>
+                            expense={exp}
+                            onEdit={handleEdit}
+                            onDelete={handleDelete}
+                        />
                     ))}
                 </ul>
             )}
