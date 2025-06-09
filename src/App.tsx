@@ -4,6 +4,9 @@ import { supabase } from "./lib/supabaseClient";
 import { useUserStore } from "./stores/userStore";
 
 // Pages
+import ExpensesEditPage from "./pages/expenses/ExpenseEditPage";
+import ExpensesListPage from "./pages/expenses/ExpensesListPage";
+import ExpensesNewPage from "./pages/expenses/ExpensesNewPage";
 import Login from "./pages/Login";
 import NewRecipePage from "./pages/recipes/NewRecipePage";
 import RecipeDetailsPage from "./pages/recipes/RecipeDetailsPage";
@@ -11,7 +14,6 @@ import RecipesListPage from "./pages/recipes/RecipesListPage";
 import Register from "./pages/Register";
 import ShoppingListDetailsPage from "./pages/shopping-lists/ShoppingListDetailsPage";
 import ShoppingLists from "./pages/shopping-lists/ShoppingListsPage";
-// import Expenses from "./pages/expenses";
 // import Pantry from "./pages/pantry";
 
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -109,15 +111,25 @@ export default function App() {
           } />
           <Route path="/recipes/:id" element={<RecipeDetailsPage />} />
 
-          {/*
           <Route
             path="/expenses"
             element={
               <ProtectedRoute>
-                <Expenses />
+                <ExpensesListPage />
               </ProtectedRoute>
             }
           />
+          <Route path="/expenses/new" element={
+            <ProtectedRoute>
+              <ExpensesNewPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/expenses/edit/:id" element={
+            <ProtectedRoute>
+              <ExpensesEditPage />
+            </ProtectedRoute>
+          } />
+          {/*
           <Route
             path="/pantry"
             element={
