@@ -1,4 +1,3 @@
-// src/pages/ExpensesNewPage.tsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Button from "../../components/ui/Button";
@@ -7,15 +6,8 @@ import MemberList from "../../components/ui/MemberList";
 import Select from "../../components/ui/Select";
 import Toast from "../../components/ui/Toast";
 import { supabase } from "../../lib/supabaseClient";
+import { useExpensesStore } from "../../stores/expensesStore";
 import { useUserStore } from "../../stores/userStore";
-
-export type Expense = {
-    amount: number;
-    store: string;
-    date: string;
-    category: string;
-    shared_with: string[];
-};
 
 const CATEGORIES = ["żywność", "samochód", "rozrywka", "chemia", "inne"];
 
@@ -27,6 +19,7 @@ interface Member {
 
 export default function ExpensesNewPage() {
     const { user } = useUserStore();
+    const { addExpense } = useExpensesStore();
     const navigate = useNavigate();
 
     const [amount, setAmount] = useState(0);
@@ -39,7 +32,6 @@ export default function ExpensesNewPage() {
     const [storeError, setStoreError] = useState("");
     const [dateError, setDateError] = useState("");
     const [categoryError, setCategoryError] = useState("");
-
     const [toast, setToast] = useState<{ message: string; type?: "error" | "success" } | null>(null);
 
     const handleInviteToThisExpense = async (email: string) => {
@@ -59,6 +51,7 @@ export default function ExpensesNewPage() {
             setToast({ message: "Nie znaleziono użytkownika.", type: "error" });
             return;
         }
+
         const updated = [...sharedWith, { id: profile.id, email: profile.email, role: "viewer" }];
         setSharedWith(updated);
     };
@@ -107,42 +100,25 @@ export default function ExpensesNewPage() {
     const handleAdd = async () => {
         if (!validateForm() || !user?.id) return;
 
-        const { data: insertedExpense, error } = await supabase
-            .from("expenses")
-            .insert({
+        const result = await addExpense(
+            {
                 amount,
                 store: store.trim(),
                 date,
                 category,
                 user_id: user.id,
-            })
-            .select()
-            .single();
+            },
+            sharedWith
+        );
 
-        if (error || !insertedExpense) {
-            setToast({ message: "Błąd zapisu wydatku.", type: "error" });
+        if (!result.success) {
+            setToast({ message: result.error || "Błąd dodania wydatku.", type: "error" });
             return;
-        }
-
-        if (sharedWith.length > 0) {
-            const { error: viewerError } = await supabase
-                .from("expense_viewers")
-                .insert(
-                    sharedWith.map((m) => ({
-                        expense_id: insertedExpense.id,
-                        user_id: m.id,
-                    }))
-                );
-
-            if (viewerError) {
-                console.error("Błąd dodawania współdzielonych użytkowników:", viewerError.message);
-            }
         }
 
         setToast({ message: "Wydatek dodany!", type: "success" });
         setTimeout(() => navigate("/expenses"), 500);
     };
-
 
     return (
         <div className="p-4 max-w-2xl mx-auto space-y-4">
