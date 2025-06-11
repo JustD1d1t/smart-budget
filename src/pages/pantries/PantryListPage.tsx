@@ -3,69 +3,22 @@ import { useNavigate } from "react-router-dom";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import Toast from "../../components/ui/Toast";
-import { supabase } from "../../lib/supabaseClient";
-
-interface Pantry {
-    id: string;
-    name: string;
-    owner_id: string;
-    isOwner: boolean;
-    isEditing?: boolean;
-}
+import { usePantriesStore } from "../../stores/pantriesStore";
 
 export default function PantryListPage() {
-    const [pantries, setPantries] = useState<Pantry[]>([]);
-    const [loading, setLoading] = useState(true);
     const [newPantryName, setNewPantryName] = useState("");
     const [nameError, setNameError] = useState<string | null>(null);
     const [toast, setToast] = useState<{ message: string; type?: "error" | "success" } | null>(null);
     const navigate = useNavigate();
 
-    const fetchPantries = async () => {
-        setLoading(true);
-        const { data: userData } = await supabase.auth.getUser();
-        const userId = userData.user?.id;
-
-        if (!userId) {
-            setToast({ message: "Nie udało się pobrać użytkownika.", type: "error" });
-            setLoading(false);
-            return;
-        }
-
-        const { data: viewerLinks, error: viewersError } = await supabase
-            .from("pantry_members")
-            .select("pantry_id")
-            .eq("user_id", userId);
-
-        const sharedIds = viewerLinks?.map((v) => v.pantry_id) || [];
-
-        const { data: ownedPantries, error: ownedError } = await supabase
-            .from("pantries")
-            .select("*")
-            .eq("owner_id", userId);
-
-        const { data: sharedPantries, error: sharedError } = sharedIds.length
-            ? await supabase
-                .from("pantries")
-                .select("*")
-                .in("id", sharedIds)
-            : { data: [], error: null };
-
-        if (ownedError || sharedError || viewersError) {
-            setToast({ message: "Nie udało się pobrać spiżarni.", type: "error" });
-            setLoading(false);
-            return;
-        }
-
-        const combined = [...(ownedPantries || []), ...(sharedPantries || [])];
-        const withOwnership = combined.map((pantry) => ({
-            ...pantry,
-            isOwner: pantry.owner_id === userId,
-        }));
-
-        setPantries(withOwnership);
-        setLoading(false);
-    };
+    const {
+        pantries,
+        loading,
+        fetchPantries,
+        addPantry,
+        removePantry,
+        renamePantry,
+    } = usePantriesStore();
 
     useEffect(() => {
         fetchPantries();
@@ -78,46 +31,26 @@ export default function PantryListPage() {
         }
 
         setNameError(null);
-        const { data: userData, error: userError } = await supabase.auth.getUser();
-        const userId = userData?.user?.id;
+        const result = await addPantry(newPantryName);
 
-        if (!userId || userError) {
-            setToast({ message: "Nie udało się pobrać użytkownika.", type: "error" });
-            return;
-        }
-
-        const { data, error } = await supabase
-            .from("pantries")
-            .insert({ name: newPantryName.trim(), owner_id: userId })
-            .select()
-            .single();
-
-        if (error || !data) {
-            setToast({ message: "Błąd podczas dodawania spiżarni.", type: "error" });
+        if (!result.success) {
+            setToast({ message: result.error || "Błąd podczas dodawania spiżarni.", type: "error" });
             return;
         }
 
         setNewPantryName("");
-        await fetchPantries();
         setToast({ message: "Spiżarnia dodana pomyślnie!", type: "success" });
     };
 
     const handleRemovePantry = async (id: string) => {
-        const { error } = await supabase.from("pantries").delete().eq("id", id);
-        if (!error) {
-            setPantries((prev) => prev.filter((p) => p.id !== id));
-            setToast({ message: "Usunięto spiżarnię", type: "success" });
-        } else {
-            setToast({ message: "Błąd przy usuwaniu spiżarni", type: "error" });
-        }
+        await removePantry(id);
+        setToast({ message: "Usunięto spiżarnię", type: "success" });
     };
 
     const handleRenamePantry = async (id: string, newName: string) => {
         if (!newName.trim()) return;
-        const { error } = await supabase.from("pantries").update({ name: newName }).eq("id", id);
-        if (!error) {
-            setToast({ message: "Zmieniono nazwę spiżarni", type: "success" });
-        }
+        await renamePantry(id, newName);
+        setToast({ message: "Zmieniono nazwę spiżarni", type: "success" });
     };
 
     return (
@@ -160,7 +93,6 @@ export default function PantryListPage() {
                                             onChange={(e) => {
                                                 const updated = [...pantries];
                                                 updated[index].name = e.target.value;
-                                                setPantries(updated);
                                             }}
                                         />
                                         <Button
@@ -168,7 +100,6 @@ export default function PantryListPage() {
                                                 handleRenamePantry(pantry.id, pantry.name);
                                                 const updated = [...pantries];
                                                 updated[index].isEditing = false;
-                                                setPantries(updated);
                                             }}
                                         >
                                             Zapisz
@@ -190,7 +121,6 @@ export default function PantryListPage() {
                                                         onClick={() => {
                                                             const updated = [...pantries];
                                                             updated[index].isEditing = true;
-                                                            setPantries(updated);
                                                         }}
                                                     >
                                                         Zmień nazwę

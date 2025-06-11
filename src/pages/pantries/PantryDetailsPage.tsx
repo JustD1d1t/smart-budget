@@ -7,177 +7,66 @@ import ItemList from "../../components/pantries/ItemList";
 import Button from "../../components/ui/Button";
 import MemberList from "../../components/ui/MemberList";
 import Toast from "../../components/ui/Toast";
-import { supabase } from "../../lib/supabaseClient";
-
-interface PantryItem {
-  id: string;
-  name: string;
-  category: string;
-  quantity: number;
-  unit: string;
-  expiry_date?: string | null;
-}
-
-interface Pantry {
-  id: string;
-  name: string;
-  owner_id: string;
-}
-
-interface Member {
-  id: string;
-  email: string;
-  role: string;
-}
+import { usePantriesStore } from "../../stores/pantriesStore";
 
 export default function PantryDetailsPage() {
   const { id } = useParams<{ id: string }>();
-  const [items, setItems] = useState<PantryItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [pantry, setPantry] = useState<Pantry | null>(null);
-  const [editingItem, setEditingItem] = useState<PantryItem | null>(null);
-  const [toast, setToast] = useState<{ message: string; type?: "error" | "success" } | null>(null);
-  const [filterCategory, setFilterCategory] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<"name" | "category" | "expiry_date">("name");
+  const [editingItem, setEditingItem] = useState(null);
+  const [toast, setToast] = useState(null);
+  const [filterCategory, setFilterCategory] = useState("all");
+  const [sortBy, setSortBy] = useState("name");
   const [groupedView, setGroupedView] = useState(false);
-  const [members, setMembers] = useState<Member[]>([]);
-  const [isOwner, setIsOwner] = useState(false);
 
-  const fetchPantry = async () => {
-    const { data: userData } = await supabase.auth.getUser();
-    const currentUserId = userData.user?.id;
-
-    const { data, error } = await supabase
-      .from("pantries")
-      .select("id, name, owner_id")
-      .eq("id", id)
-      .single();
-
-    if (!error && data) {
-      setPantry(data);
-      setIsOwner(data.owner_id === currentUserId);
-    }
-  };
-
-  const fetchItems = async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("pantry_items")
-      .select("*")
-      .eq("pantry_id", id);
-
-    if (!error && data) {
-      setItems(data);
-    }
-    setLoading(false);
-  };
-
-  const fetchMembers = async () => {
-    const { data, error } = await supabase
-      .from("pantry_members")
-      .select("id, email, role")
-      .eq("pantry_id", id);
-
-    if (!error && data) {
-      setMembers(data);
-    }
-  };
-
-  const inviteMember = async (email: string) => {
-    const { data: users } = await supabase
-      .from("users")
-      .select("id, email")
-      .eq("email", email);
-
-    if (!users || users.length === 0) {
-      setToast({ message: "Nie znaleziono użytkownika.", type: "error" });
-      return;
-    }
-
-    const user = users[0];
-
-    const { data: existing } = await supabase
-      .from("pantry_members")
-      .select("id")
-      .eq("pantry_id", id)
-      .eq("user_id", user.id);
-
-    if (existing && existing.length > 0) {
-      setToast({ message: "Ten użytkownik już należy do tej spiżarni.", type: "error" });
-      return;
-    }
-
-    const { error } = await supabase.from("pantry_members").insert({
-      pantry_id: id,
-      user_id: user.id,
-      email: user.email,
-      role: "member",
-    });
-
-    if (error) {
-      setToast({ message: "Błąd przy zapraszaniu.", type: "error" });
-    } else {
-      setToast({ message: "Użytkownik zaproszony!", type: "success" });
-      fetchMembers();
-    }
-  };
-
-  const removeMember = async (memberId: string) => {
-    const { error } = await supabase
-      .from("pantry_members")
-      .delete()
-      .eq("id", memberId);
-
-    if (!error) {
-      setToast({ message: "Użytkownik usunięty.", type: "success" });
-      fetchMembers();
-    } else {
-      setToast({ message: "Błąd przy usuwaniu.", type: "error" });
-    }
-  };
+  const {
+    selectedPantry,
+    isOwner,
+    pantryItems,
+    pantryMembers,
+    loading,
+    fetchPantryDetails,
+    fetchPantryItems,
+    fetchPantryMembers,
+    updatePantryItem,
+    deletePantryItem,
+    updateItemQuantity,
+    inviteMember,
+    removeMember,
+    addPantryItem,
+  } = usePantriesStore();
 
   useEffect(() => {
     if (id) {
-      fetchPantry();
-      fetchItems();
-      fetchMembers();
+      fetchPantryDetails(id);
+      fetchPantryItems(id);
+      fetchPantryMembers(id);
     }
   }, [id]);
 
   const handleSaveEdit = async () => {
     if (!editingItem) return;
-
-    const { error } = await supabase
-      .from("pantry_items")
-      .update({
-        name: editingItem.name,
-        quantity: editingItem.quantity,
-        unit: editingItem.unit,
-        category: editingItem.category,
-        expiry_date: editingItem.expiry_date || null,
-      })
-      .eq("id", editingItem.id);
-
-    if (!error) {
-      setItems((prev) =>
-        prev.map((item) => (item.id === editingItem.id ? editingItem : item))
-      );
-      setEditingItem(null);
-    }
+    updatePantryItem(editingItem);
+    setEditingItem(null);
   };
 
-  const handleDeleteItem = async (id: string) => {
-    const { error } = await supabase.from("pantry_items").delete().eq("id", id);
-    if (!error) {
-      setItems((prev) => prev.filter((item) => item.id !== id));
-    }
+  const handleDeleteItem = async (itemId) => {
+    await deletePantryItem(itemId);
   };
 
-  const addItem = (item: PantryItem) => {
-    setItems((prev) => [...prev, item]);
+  const handleQuantityChange = async (itemId, newQuantity) => {
+    await updateItemQuantity(itemId, newQuantity);
   };
 
-  const filteredItems = items
+  const handleInvite = async (email) => {
+    const result = await inviteMember(id, email);
+    setToast({ message: result.message, type: result.success ? "success" : "error" });
+  };
+
+  const handleRemove = async (memberId) => {
+    await removeMember(memberId);
+    setToast({ message: "Użytkownik usunięty.", type: "success" });
+  };
+
+  const filteredItems = pantryItems
     .filter((item) => filterCategory === "all" || item.category === filterCategory)
     .sort((a, b) => {
       if (sortBy === "name") return a.name.localeCompare(b.name);
@@ -190,30 +79,12 @@ export default function PantryDetailsPage() {
       return 0;
     });
 
-  const categories = [...new Set(items.map((item) => item.category))];
-
-  const handleQuantityChange = async (id: string, newQuantity: number) => {
-    const item = items.find((item) => item.id === id);
-    if (!item || newQuantity < 0) return;
-
-    const { error } = await supabase
-      .from("pantry_items")
-      .update({ quantity: newQuantity })
-      .eq("id", id);
-
-    if (!error) {
-      setItems((prev) =>
-        prev.map((i) =>
-          i.id === id ? { ...i, quantity: newQuantity } : i
-        )
-      );
-    }
-  };
+  const categories = [...new Set(pantryItems.map((item) => item.category))];
 
   return (
     <div className="max-w-2xl mx-auto">
       <h1 className="text-xl font-bold mb-4">
-        Szczegóły spiżarni{pantry ? `: ${pantry.name}` : ""}
+        Szczegóły spiżarni{selectedPantry ? `: ${selectedPantry.name}` : ""}
       </h1>
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
@@ -221,13 +92,13 @@ export default function PantryDetailsPage() {
       {isOwner && (
         <MemberList
           isOwner={true}
-          members={members}
-          onInvite={inviteMember}
-          onRemove={removeMember}
+          members={pantryMembers}
+          onInvite={handleInvite}
+          onRemove={handleRemove}
         />
       )}
 
-      <AddPantryItemForm pantryId={id!} onItemAdded={addItem} />
+      <AddPantryItemForm pantryId={id} onItemAdded={addPantryItem} />
 
       <div className="flex items-center gap-2 mt-6 mb-2">
         <Button onClick={() => setGroupedView(!groupedView)} className="text-sm">
@@ -250,7 +121,7 @@ export default function PantryDetailsPage() {
         {!groupedView && (
           <select
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as "name" | "category" | "expiry_date")}
+            onChange={(e) => setSortBy(e.target.value)}
             className="border p-2 rounded text-sm"
           >
             <option value="name">Sortuj alfabetycznie</option>
