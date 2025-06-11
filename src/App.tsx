@@ -7,6 +7,7 @@ import { useUserStore } from "./stores/userStore";
 import ExpensesEditPage from "./pages/expenses/ExpenseEditPage";
 import ExpensesListPage from "./pages/expenses/ExpensesListPage";
 import ExpensesNewPage from "./pages/expenses/ExpensesNewPage";
+import FriendsPage from "./pages/friends/FriendsPage";
 import Login from "./pages/Login";
 import PantryDetailsPage from "./pages/pantries/PantryDetailsPage";
 import PantryListPage from "./pages/pantries/PantryListPage";
@@ -51,6 +52,7 @@ export default function App() {
             <NavLink to="/recipes">Przepisy</NavLink>
             <NavLink to="/expenses">Wydatki</NavLink>
             <NavLink to="/pantry">Spiżarnia</NavLink>
+            <NavLink to="/friends">Znajomi</NavLink>
           </div>
         ) : <div />}
 
@@ -132,6 +134,8 @@ export default function App() {
           } />
           <Route path="/pantry" element={<ProtectedRoute><PantryListPage /></ProtectedRoute>} />
           <Route path="/pantries/:id" element={<ProtectedRoute><PantryDetailsPage /></ProtectedRoute>} />
+
+          <Route path="/friends" element={<ProtectedRoute><FriendsPage /></ProtectedRoute>} />
         </Routes>
       </main>
     </div>
