@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
+import { supabase } from "../../lib/supabaseClient";
 import Button from "./Button";
 import Modal from "./Modal"; // użycie Twojego komponentu
-import { supabase } from "../../lib/supabaseClient";
 
 type Props = {
     isOpen: boolean;
     onClose: () => void;
     onSelect: (listId: string) => void;
 };
+
 
 export default function ShoppingListSelectModal({ isOpen, onClose, onSelect }: Props) {
     const [lists, setLists] = useState<{ id: string; name: string }[]>([]);
@@ -30,7 +31,7 @@ export default function ShoppingListSelectModal({ isOpen, onClose, onSelect }: P
     }, [isOpen]);
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Wybierz listę zakupową">
+        <Modal onClose={onClose} title="Wybierz listę zakupową">
             <div className="space-y-4">
                 {loading ? (
                     <p>Ładowanie...</p>

@@ -21,6 +21,7 @@ interface PantryItem {
 interface Pantry {
   id: string;
   name: string;
+  owner_id: string;
 }
 
 interface Member {
@@ -40,16 +41,21 @@ export default function PantryDetailsPage() {
   const [sortBy, setSortBy] = useState<"name" | "category" | "expiry_date">("name");
   const [groupedView, setGroupedView] = useState(false);
   const [members, setMembers] = useState<Member[]>([]);
+  const [isOwner, setIsOwner] = useState(false);
 
   const fetchPantry = async () => {
+    const { data: userData } = await supabase.auth.getUser();
+    const currentUserId = userData.user?.id;
+
     const { data, error } = await supabase
       .from("pantries")
-      .select("id, name")
+      .select("id, name, owner_id")
       .eq("id", id)
       .single();
 
     if (!error && data) {
       setPantry(data);
+      setIsOwner(data.owner_id === currentUserId);
     }
   };
 
@@ -212,12 +218,14 @@ export default function PantryDetailsPage() {
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
-      <MemberList
-        isOwner={true}
-        members={members}
-        onInvite={inviteMember}
-        onRemove={removeMember}
-      />
+      {isOwner && (
+        <MemberList
+          isOwner={true}
+          members={members}
+          onInvite={inviteMember}
+          onRemove={removeMember}
+        />
+      )}
 
       <AddPantryItemForm pantryId={id!} onItemAdded={addItem} />
 

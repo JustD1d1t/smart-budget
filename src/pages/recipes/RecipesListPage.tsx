@@ -139,11 +139,13 @@ export default function RecipesListPage() {
         ))}
       </div>
 
-      <ShoppingListSelectModal
-        isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onSelect={handleListSelected}
-      />
+      {modalOpen && (
+        <ShoppingListSelectModal
+          isOpen={modalOpen}
+          onClose={() => setModalOpen(false)}
+          onSelect={handleListSelected}
+        />
+      )}
 
       {toast && (
         <Toast
