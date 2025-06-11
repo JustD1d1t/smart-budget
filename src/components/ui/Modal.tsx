@@ -2,13 +2,11 @@ import React from "react";
 import ReactDOM from "react-dom";
 
 interface ModalProps {
-    isOpen: boolean;
     onClose: () => void;
     children: React.ReactNode;
 }
 
-const Modal = ({ isOpen, onClose, children }: ModalProps) => {
-    if (!isOpen) return null;
+const Modal = ({ onClose, children }: ModalProps) => {
 
     return ReactDOM.createPortal(
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">

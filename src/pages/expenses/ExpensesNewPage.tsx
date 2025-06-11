@@ -15,7 +15,7 @@ export type Expense = {
 
 const CATEGORIES = ["żywność", "samochód", "rozrywka", "chemia", "inne"];
 
-export default function ExpensesSection() {
+export default function ExpensesListPage() {
     const { user } = useUserStore();
     const navigate = useNavigate();
 
