@@ -4,8 +4,8 @@ import AddItemForm from "../../components/shopping-list/AddItemForm";
 import EditItemModal from "../../components/shopping-list/EditItemModal";
 import GroupedItemList from "../../components/shopping-list/GroupedItemList";
 import ItemList from "../../components/shopping-list/ItemList";
-import MemberList from "../../components/shopping-list/MemberList";
 import Button from "../../components/ui/Button";
+import MemberList from "../../components/ui/MemberList";
 import Toast from "../../components/ui/Toast";
 import { supabase } from "../../lib/supabaseClient";
 
@@ -50,7 +50,6 @@ const ShoppingListDetailsPage = () => {
   const [list, setList] = useState<ShoppingList | null>(null);
   const [editingItem, setEditingItem] = useState<ShoppingItem | null>(null);
   const [members, setMembers] = useState<ShoppingListMember[]>([]);
-  const [inviteEmail, setInviteEmail] = useState("");
   const [emailError, setEmailError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type?: "error" | "success" } | null>(null);
   const [isOwner, setIsOwner] = useState(false);
@@ -177,23 +176,21 @@ const ShoppingListDetailsPage = () => {
 
   const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-  const inviteMember = async () => {
-    if (!inviteEmail.trim()) {
-      setEmailError("Podaj adres e-mail.");
+  const inviteMember = async (email: string) => {
+    if (!email.trim()) {
+      setToast({ message: "Podaj adres e-mail.", type: "error" });
       return;
     }
 
-    if (!isValidEmail(inviteEmail)) {
-      setEmailError("Niepoprawny adres e-mail.");
+    if (!isValidEmail(email)) {
+      setToast({ message: "Niepoprawny adres e-mail.", type: "error" });
       return;
     }
-
-    setEmailError(null);
 
     const { data: users } = await supabase
       .from("users")
       .select("id, email")
-      .eq("email", inviteEmail);
+      .eq("email", email);
 
     if (!users || users.length === 0) {
       setToast({ message: "Nie znaleziono użytkownika.", type: "error" });
@@ -225,11 +222,11 @@ const ShoppingListDetailsPage = () => {
     if (error) {
       setToast({ message: "Błąd przy zapraszaniu.", type: "error" });
     } else {
-      setInviteEmail("");
       setToast({ message: "Użytkownik zaproszony!", type: "success" });
       fetchMembers();
     }
   };
+
 
   const filteredItems = items
     .filter((item) => filterCategory === "all" || item.category === filterCategory)
@@ -251,9 +248,6 @@ const ShoppingListDetailsPage = () => {
       <MemberList
         isOwner={isOwner}
         members={members}
-        inviteEmail={inviteEmail}
-        emailError={emailError}
-        onEmailChange={setInviteEmail}
         onInvite={inviteMember}
         onRemove={removeMember}
       />

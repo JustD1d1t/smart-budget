@@ -1,4 +1,4 @@
-import { Expense } from "../../pages/ExpensesListPage";
+import { Expense } from "../../pages/expenses/ExpensesListPage";
 import Button from "../ui/Button";
 
 type Props = {
@@ -14,12 +14,8 @@ export default function ExpenseItem({ expense, onEdit, onDelete }: Props) {
             <span>{expense.amount.toFixed(2)} zł</span>
             <span className="text-gray-500">{expense.date}</span>
             <span className="text-gray-400 italic">{expense.category}</span>
-            <Button variant="ghost" onClick={() => onEdit(expense.id)}>
-                ✏️ Edytuj
-            </Button>
-            <Button variant="ghost" onClick={() => onDelete(expense.id)}>
-                🗑 Usuń
-            </Button>
+            {onEdit && <Button onClick={() => onEdit(expense.id)}>✏️ Edytuj</Button>}
+            {onDelete && <Button onClick={() => onDelete(expense.id)}>🗑 Usuń</Button>}
         </li>
     );
 }

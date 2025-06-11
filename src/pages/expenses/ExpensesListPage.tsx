@@ -10,8 +10,9 @@ export type Expense = {
     id: string;
     amount: number;
     store: string;
-    date: string; // ISO string
+    date: string;
     category: string;
+    user_id: string;
 };
 
 const CATEGORIES = ["", "żywność", "samochód", "rozrywka", "chemia", "inne"];
@@ -55,29 +56,49 @@ export default function ExpensesListPage() {
 
     useEffect(() => {
         const fetchExpenses = async () => {
-            if (!user?.id) return;
+            if (!user?.id) {
+                setLoading(false);
+                return;
+            }
             setLoading(true);
 
-            let query = supabase
+            const { data: viewerLinks, error: viewersError } = await supabase
+                .from("expense_viewers")
+                .select("expense_id")
+                .eq("user_id", user.id);
+
+            if (viewersError) {
+                console.error("Błąd ładowania relacji viewers:", viewersError.message);
+                setExpenses([]);
+                setLoading(false);
+                return;
+            }
+
+            const sharedIds = viewerLinks?.map(e => e.expense_id) || [];
+
+            const { data: allExpenses, error } = await supabase
                 .from("expenses")
                 .select("*")
-                .eq("user_id", user.id)
                 .gte("date", startDate)
                 .lte("date", endDate);
 
-            if (filterCategory) {
-                query = query.eq("category", filterCategory);
-            }
-
-            const { data, error } = await query;
-
             if (error) {
                 console.error("Błąd ładowania wydatków:", error.message);
+                setExpenses([]);
             } else {
-                const sorted = data.sort(
+                const filtered = (allExpenses || []).filter(exp =>
+                    exp.user_id === user.id || sharedIds.includes(exp.id)
+                );
+
+                const sorted = filtered.sort(
                     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
                 );
-                setExpenses(sorted);
+
+                setExpenses(
+                    filterCategory
+                        ? sorted.filter(e => e.category === filterCategory)
+                        : sorted
+                );
             }
 
             setLoading(false);
@@ -115,6 +136,9 @@ export default function ExpensesListPage() {
     }, [sortOption]);
 
     const handleDelete = async (id: string) => {
+        const expense = expenses.find(e => e.id === id);
+        if (expense?.user_id !== user?.id) return;
+
         const { error } = await supabase.from("expenses").delete().eq("id", id);
         if (error) {
             console.error("Błąd usuwania wydatku:", error.message);
@@ -124,11 +148,9 @@ export default function ExpensesListPage() {
     };
 
     const handleEdit = (id: string) => {
+        const expense = expenses.find(e => e.id === id);
+        if (expense?.user_id !== user?.id) return;
         navigate(`/expenses/edit/${id}`);
-    };
-
-    const changeSortOption = (option: string) => {
-        setSortOption(option);
     };
 
     return (
@@ -161,8 +183,8 @@ export default function ExpensesListPage() {
                         <ExpenseItem
                             key={exp.id}
                             expense={exp}
-                            onEdit={handleEdit}
-                            onDelete={handleDelete}
+                            onEdit={exp.user_id === user?.id ? handleEdit : undefined}
+                            onDelete={exp.user_id === user?.id ? handleDelete : undefined}
                         />
                     ))}
                 </ul>
@@ -172,9 +194,7 @@ export default function ExpensesListPage() {
                 <p className="text-gray-500">Brak zapisanych wydatków.</p>
             )}
 
-            <Button className="mt-6" onClick={() => navigate("/expenses/new")}>
-                ➕ Dodaj nowy wydatek
-            </Button>
+            <Button className="mt-6" onClick={() => navigate("/expenses/new")}>➕ Dodaj nowy wydatek</Button>
         </div>
     );
 }

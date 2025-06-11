@@ -5,6 +5,7 @@ import EditPantryItemModal from "../../components/pantries/EditPantryItemModal";
 import GroupedItemList from "../../components/pantries/GroupedItemList";
 import ItemList from "../../components/pantries/ItemList";
 import Button from "../../components/ui/Button";
+import MemberList from "../../components/ui/MemberList";
 import Toast from "../../components/ui/Toast";
 import { supabase } from "../../lib/supabaseClient";
 
@@ -22,6 +23,12 @@ interface Pantry {
   name: string;
 }
 
+interface Member {
+  id: string;
+  email: string;
+  role: string;
+}
+
 export default function PantryDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const [items, setItems] = useState<PantryItem[]>([]);
@@ -32,6 +39,7 @@ export default function PantryDetailsPage() {
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [sortBy, setSortBy] = useState<"name" | "category" | "expiry_date">("name");
   const [groupedView, setGroupedView] = useState(false);
+  const [members, setMembers] = useState<Member[]>([]);
 
   const fetchPantry = async () => {
     const { data, error } = await supabase
@@ -58,10 +66,75 @@ export default function PantryDetailsPage() {
     setLoading(false);
   };
 
+  const fetchMembers = async () => {
+    const { data, error } = await supabase
+      .from("pantry_members")
+      .select("id, email, role")
+      .eq("pantry_id", id);
+
+    if (!error && data) {
+      setMembers(data);
+    }
+  };
+
+  const inviteMember = async (email: string) => {
+    const { data: users } = await supabase
+      .from("users")
+      .select("id, email")
+      .eq("email", email);
+
+    if (!users || users.length === 0) {
+      setToast({ message: "Nie znaleziono użytkownika.", type: "error" });
+      return;
+    }
+
+    const user = users[0];
+
+    const { data: existing } = await supabase
+      .from("pantry_members")
+      .select("id")
+      .eq("pantry_id", id)
+      .eq("user_id", user.id);
+
+    if (existing && existing.length > 0) {
+      setToast({ message: "Ten użytkownik już należy do tej spiżarni.", type: "error" });
+      return;
+    }
+
+    const { error } = await supabase.from("pantry_members").insert({
+      pantry_id: id,
+      user_id: user.id,
+      email: user.email,
+      role: "member",
+    });
+
+    if (error) {
+      setToast({ message: "Błąd przy zapraszaniu.", type: "error" });
+    } else {
+      setToast({ message: "Użytkownik zaproszony!", type: "success" });
+      fetchMembers();
+    }
+  };
+
+  const removeMember = async (memberId: string) => {
+    const { error } = await supabase
+      .from("pantry_members")
+      .delete()
+      .eq("id", memberId);
+
+    if (!error) {
+      setToast({ message: "Użytkownik usunięty.", type: "success" });
+      fetchMembers();
+    } else {
+      setToast({ message: "Błąd przy usuwaniu.", type: "error" });
+    }
+  };
+
   useEffect(() => {
     if (id) {
       fetchPantry();
       fetchItems();
+      fetchMembers();
     }
   }, [id]);
 
@@ -138,6 +211,13 @@ export default function PantryDetailsPage() {
       </h1>
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
+      <MemberList
+        isOwner={true}
+        members={members}
+        onInvite={inviteMember}
+        onRemove={removeMember}
+      />
 
       <AddPantryItemForm pantryId={id!} onItemAdded={addItem} />
 

@@ -1,21 +1,31 @@
+// src/pages/ExpensesNewPage.tsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
+import MemberList from "../../components/ui/MemberList";
 import Select from "../../components/ui/Select";
+import Toast from "../../components/ui/Toast";
 import { supabase } from "../../lib/supabaseClient";
 import { useUserStore } from "../../stores/userStore";
 
 export type Expense = {
     amount: number;
     store: string;
-    date: string; // ISO string
+    date: string;
     category: string;
+    shared_with: string[];
 };
 
 const CATEGORIES = ["żywność", "samochód", "rozrywka", "chemia", "inne"];
 
-export default function ExpensesListPage() {
+interface Member {
+    id: string;
+    email: string;
+    role: string;
+}
+
+export default function ExpensesNewPage() {
     const { user } = useUserStore();
     const navigate = useNavigate();
 
@@ -23,11 +33,39 @@ export default function ExpensesListPage() {
     const [store, setStore] = useState("");
     const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
     const [category, setCategory] = useState("");
+    const [sharedWith, setSharedWith] = useState<Member[]>([]);
 
     const [amountError, setAmountError] = useState("");
     const [storeError, setStoreError] = useState("");
     const [dateError, setDateError] = useState("");
     const [categoryError, setCategoryError] = useState("");
+
+    const [toast, setToast] = useState<{ message: string; type?: "error" | "success" } | null>(null);
+
+    const handleInviteToThisExpense = async (email: string) => {
+        const alreadyAdded = sharedWith.some((m) => m.email === email);
+        if (alreadyAdded) {
+            setToast({ message: "Użytkownik już dodany do tego wydatku.", type: "error" });
+            return;
+        }
+
+        const { data: profile, error } = await supabase
+            .from("profiles")
+            .select("id, email")
+            .eq("email", email)
+            .maybeSingle();
+
+        if (!profile || error) {
+            setToast({ message: "Nie znaleziono użytkownika.", type: "error" });
+            return;
+        }
+        const updated = [...sharedWith, { id: profile.id, email: profile.email, role: "viewer" }];
+        setSharedWith(updated);
+    };
+
+    const handleRemoveFromThisExpense = (id: string) => {
+        setSharedWith((prev) => prev.filter((m) => m.id !== id));
+    };
 
     const validateForm = () => {
         let isValid = true;
@@ -69,26 +107,57 @@ export default function ExpensesListPage() {
     const handleAdd = async () => {
         if (!validateForm() || !user?.id) return;
 
-        const { error } = await supabase.from("expenses").insert({
-            amount,
-            store: store.trim(),
-            date,
-            category,
-            user_id: user.id,
-        });
+        const { data: insertedExpense, error } = await supabase
+            .from("expenses")
+            .insert({
+                amount,
+                store: store.trim(),
+                date,
+                category,
+                user_id: user.id,
+            })
+            .select()
+            .single();
 
-        if (error) {
-            console.error("Błąd zapisu wydatku:", error.message);
-            // Można dodać globalny błąd, jeśli chcesz
+        if (error || !insertedExpense) {
+            setToast({ message: "Błąd zapisu wydatku.", type: "error" });
             return;
         }
 
-        navigate("/expenses");
+        if (sharedWith.length > 0) {
+            const { error: viewerError } = await supabase
+                .from("expense_viewers")
+                .insert(
+                    sharedWith.map((m) => ({
+                        expense_id: insertedExpense.id,
+                        user_id: m.id,
+                    }))
+                );
+
+            if (viewerError) {
+                console.error("Błąd dodawania współdzielonych użytkowników:", viewerError.message);
+            }
+        }
+
+        setToast({ message: "Wydatek dodany!", type: "success" });
+        setTimeout(() => navigate("/expenses"), 500);
     };
+
 
     return (
         <div className="p-4 max-w-2xl mx-auto space-y-4">
             <h2 className="text-xl font-bold">💸 Nowy wydatek</h2>
+
+            {toast && (
+                <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
+            )}
+
+            <MemberList
+                isOwner={true}
+                members={sharedWith}
+                onInvite={handleInviteToThisExpense}
+                onRemove={handleRemoveFromThisExpense}
+            />
 
             <Input
                 type="number"

@@ -26,18 +26,44 @@ export default function PantryListPage() {
         const { data: userData } = await supabase.auth.getUser();
         const userId = userData.user?.id;
 
-        const { data, error } = await supabase.from("pantries").select("*");
-
-        if (error) {
-            setToast({ message: "Nie udało się pobrać spiżarni.", type: "error" });
-        } else {
-            const withOwnership = data.map((pantry) => ({
-                ...pantry,
-                isOwner: pantry.owner_id === userId,
-            }));
-            setPantries(withOwnership);
+        if (!userId) {
+            setToast({ message: "Nie udało się pobrać użytkownika.", type: "error" });
+            setLoading(false);
+            return;
         }
 
+        const { data: viewerLinks, error: viewersError } = await supabase
+            .from("pantry_members")
+            .select("pantry_id")
+            .eq("user_id", userId);
+
+        const sharedIds = viewerLinks?.map((v) => v.pantry_id) || [];
+
+        const { data: ownedPantries, error: ownedError } = await supabase
+            .from("pantries")
+            .select("*")
+            .eq("owner_id", userId);
+
+        const { data: sharedPantries, error: sharedError } = sharedIds.length
+            ? await supabase
+                .from("pantries")
+                .select("*")
+                .in("id", sharedIds)
+            : { data: [], error: null };
+
+        if (ownedError || sharedError || viewersError) {
+            setToast({ message: "Nie udało się pobrać spiżarni.", type: "error" });
+            setLoading(false);
+            return;
+        }
+
+        const combined = [...(ownedPantries || []), ...(sharedPantries || [])];
+        const withOwnership = combined.map((pantry) => ({
+            ...pantry,
+            isOwner: pantry.owner_id === userId,
+        }));
+
+        setPantries(withOwnership);
         setLoading(false);
     };
 
