@@ -6,6 +6,16 @@ import Button from "../../components/ui/Button";
 import { useExpensesStore } from "../../stores/expensesStore";
 import { useUserStore } from "../../stores/userStore";
 
+const CATEGORIES = ["", "żywność", "samochód", "rozrywka", "chemia", "inne"];
+const SORT_OPTIONS = [
+    { label: "Kategoria (A-Z)", value: "category_asc" },
+    { label: "Kategoria (Z-A)", value: "category_desc" },
+    { label: "Data (najnowsze)", value: "date_desc" },
+    { label: "Data (najstarsze)", value: "date_asc" },
+    { label: "Kwota (rosnąco)", value: "amount_asc" },
+    { label: "Kwota (malejąco)", value: "amount_desc" }
+];
+
 function formatDateLocal(date: Date): string {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -26,11 +36,10 @@ export default function ExpensesListPage() {
     const { user } = useUserStore();
     const navigate = useNavigate();
 
-    const { expenses, loading, fetchExpenses, deleteExpense, setExpenses } = useExpensesStore();
+    const { expenses, fetchExpenses, deleteExpense, loading } = useExpensesStore();
 
     const [filterCategory, setFilterCategory] = useState("");
     const [sortOption, setSortOption] = useState("date_desc");
-
     const { start, end } = getStartAndEndOfMonth(new Date());
     const [startDate, setStartDate] = useState(start);
     const [endDate, setEndDate] = useState(end);
@@ -66,18 +75,13 @@ export default function ExpensesListPage() {
         });
     }, [expenses, filterCategory, sortOption]);
 
-
     const handleDelete = async (id: string) => {
-        if (user?.id) {
-            await deleteExpense(id, user.id);
-        }
+        if (!user?.id) return;
+        await deleteExpense(id, user.id);
     };
 
     const handleEdit = (id: string) => {
-        const exp = expenses.find((e) => e.id === id);
-        if (exp?.user_id === user?.id) {
-            navigate(`/expenses/edit/${id}`);
-        }
+        navigate(`/expenses/edit/${id}`);
     };
 
     return (
@@ -114,17 +118,14 @@ export default function ExpensesListPage() {
                             onDelete={exp.user_id === user?.id ? handleDelete : undefined}
                         />
                     ))}
-
                 </ul>
             )}
 
-            {expenses.length === 0 && !loading && (
+            {visibleExpenses.length === 0 && !loading && (
                 <p className="text-gray-500">Brak zapisanych wydatków.</p>
             )}
 
-            <Button className="mt-6" onClick={() => navigate("/expenses/new")}>
-                ➕ Dodaj nowy wydatek
-            </Button>
+            <Button className="mt-6" onClick={() => navigate("/expenses/new")}>➕ Dodaj nowy wydatek</Button>
         </div>
     );
 }

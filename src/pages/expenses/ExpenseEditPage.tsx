@@ -6,22 +6,16 @@ import MemberList from "../../components/ui/MemberList";
 import Select from "../../components/ui/Select";
 import Toast from "../../components/ui/Toast";
 import { supabase } from "../../lib/supabaseClient";
-import { useExpensesStore } from "../../stores/expensesStore";
+import { Member, useExpensesStore } from "../../stores/expensesStore";
 import { useUserStore } from "../../stores/userStore";
 
 const CATEGORIES = ["żywność", "samochód", "rozrywka", "chemia", "inne"];
-
-interface Member {
-    id: string;
-    email: string;
-    role: string;
-}
 
 export default function EditExpensePage() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const { user } = useUserStore();
-    const { updateExpense } = useExpensesStore();
+    const { updateExpense, expenses } = useExpensesStore();
 
     const [amount, setAmount] = useState(0);
     const [store, setStore] = useState("");
@@ -29,21 +23,41 @@ export default function EditExpensePage() {
     const [category, setCategory] = useState("");
     const [sharedWith, setSharedWith] = useState<Member[]>([]);
     const [toast, setToast] = useState<{ message: string; type?: "error" | "success" } | null>(null);
-    const { expenses } = useExpensesStore();
 
     useEffect(() => {
         if (!id) return;
-        const expense = expenses.find((e) => e.id === id);
-        if (!expense) {
-            setToast({ message: "Nie znaleziono wydatku.", type: "error" });
-            return;
-        }
 
-        setAmount(expense.amount);
-        setStore(expense.store);
-        setDate(expense.date);
-        setCategory(expense.category || "");
-    }, [id, expenses]);
+        const found = expenses.find((e) => e.id === id && e.user_id === user?.id);
+        if (!found) return;
+
+        setAmount(found.amount);
+        setStore(found.store);
+        setDate(found.date);
+        setCategory(found.category || "");
+
+        // viewers i tak trzeba pobrać (jeśli ich nie trzymasz w store)
+        const fetchViewers = async () => {
+            const { data: viewers } = await supabase
+                .from("expense_viewers")
+                .select("user_id")
+                .eq("expense_id", id);
+
+            const viewerIds = viewers?.map((v) => v.user_id) || [];
+
+            if (viewerIds.length > 0) {
+                const { data: users } = await supabase
+                    .from("profiles")
+                    .select("id, email")
+                    .in("id", viewerIds);
+
+                if (users) {
+                    setSharedWith(users.map((u) => ({ id: u.id, email: u.email, role: "viewer" })));
+                }
+            }
+        };
+
+        fetchViewers();
+    }, [id, expenses, user?.id]);
 
     const handleInvite = async (email: string) => {
         const alreadyAdded = sharedWith.some((m) => m.email === email);
@@ -76,12 +90,7 @@ export default function EditExpensePage() {
         const result = await updateExpense(
             id,
             user.id,
-            {
-                amount,
-                store: store.trim(),
-                date,
-                category,
-            },
+            { amount, store: store.trim(), date, category },
             sharedWith
         );
 

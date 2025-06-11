@@ -6,16 +6,10 @@ import MemberList from "../../components/ui/MemberList";
 import Select from "../../components/ui/Select";
 import Toast from "../../components/ui/Toast";
 import { supabase } from "../../lib/supabaseClient";
-import { useExpensesStore } from "../../stores/expensesStore";
+import { Member, useExpensesStore } from "../../stores/expensesStore";
 import { useUserStore } from "../../stores/userStore";
 
 const CATEGORIES = ["żywność", "samochód", "rozrywka", "chemia", "inne"];
-
-interface Member {
-    id: string;
-    email: string;
-    role: string;
-}
 
 export default function ExpensesNewPage() {
     const { user } = useUserStore();
@@ -52,8 +46,7 @@ export default function ExpensesNewPage() {
             return;
         }
 
-        const updated = [...sharedWith, { id: profile.id, email: profile.email, role: "viewer" }];
-        setSharedWith(updated);
+        setSharedWith((prev) => [...prev, { id: profile.id, email: profile.email, role: "viewer" }]);
     };
 
     const handleRemoveFromThisExpense = (id: string) => {
@@ -112,7 +105,7 @@ export default function ExpensesNewPage() {
         );
 
         if (!result.success) {
-            setToast({ message: result.error || "Błąd dodania wydatku.", type: "error" });
+            setToast({ message: result.error || "Błąd zapisu wydatku.", type: "error" });
             return;
         }
 
@@ -124,9 +117,7 @@ export default function ExpensesNewPage() {
         <div className="p-4 max-w-2xl mx-auto space-y-4">
             <h2 className="text-xl font-bold">💸 Nowy wydatek</h2>
 
-            {toast && (
-                <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
-            )}
+            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
             <MemberList
                 isOwner={true}
