@@ -26,10 +26,11 @@ describe("ProductAutocomplete", () => {
             />
         );
 
+        fireEvent.focus(screen.getByPlaceholderText("Wpisz produkt..."));
         expect(screen.queryByRole("list")).not.toBeInTheDocument();
     });
 
-    it("shows filtered suggestions when input has 3+ characters", async () => {
+    it("shows filtered suggestions when input has 3+ characters and focused", async () => {
         render(
             <ProductAutocomplete
                 productsDb={productsDb}
@@ -38,6 +39,8 @@ describe("ProductAutocomplete", () => {
                 onClick={onClickMock}
             />
         );
+
+        fireEvent.focus(screen.getByPlaceholderText("Wpisz produkt..."));
 
         await waitFor(() => {
             expect(screen.getByText("makaron")).toBeInTheDocument();
@@ -53,6 +56,8 @@ describe("ProductAutocomplete", () => {
                 onClick={onClickMock}
             />
         );
+
+        fireEvent.focus(screen.getByPlaceholderText("Wpisz produkt..."));
 
         await waitFor(() => {
             expect(screen.getByText("makrela")).toBeInTheDocument();
@@ -70,6 +75,8 @@ describe("ProductAutocomplete", () => {
             />
         );
 
+        fireEvent.focus(screen.getByPlaceholderText("Wpisz produkt..."));
+
         await waitFor(() => {
             expect(screen.queryByRole("list")).not.toBeInTheDocument();
         });
@@ -84,6 +91,8 @@ describe("ProductAutocomplete", () => {
                 onClick={onClickMock}
             />
         );
+
+        fireEvent.focus(screen.getByPlaceholderText("Wpisz produkt..."));
 
         await waitFor(() => {
             expect(screen.getByText("makaron")).toBeInTheDocument();

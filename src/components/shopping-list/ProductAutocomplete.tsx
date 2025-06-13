@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Input from "../ui/Input";
 
 type Product = {
@@ -23,6 +23,8 @@ export default function ProductAutocomplete({
 }: Props) {
     const [suggestions, setSuggestions] = useState<Product[]>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
+    const [hasFocus, setHasFocus] = useState(false);
+    const wrapperRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const safeValue = value || "";
@@ -44,22 +46,27 @@ export default function ProductAutocomplete({
         );
 
         if (filtered.length < 5 && !hasExactMatch) {
-            setSuggestions([
-                { name: safeValue, category: "inne" },
-                ...filtered,
-            ]);
+            setSuggestions([{ name: safeValue, category: "inne" }, ...filtered]);
         } else {
             setSuggestions(filtered);
         }
 
-        if (!hasExactMatch) {
-            setShowSuggestions(true);
-        } else {
-            setShowSuggestions(false);
-        }
+        setShowSuggestions(!hasExactMatch && hasFocus);
+    }, [value, productsDb, hasFocus]);
 
-    }, [value, productsDb]);
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+                setShowSuggestions(false);
+                setHasFocus(false);
+            }
+        };
 
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, []);
 
     const setSelectedItem = (item: Product) => {
         onChange(item.name);
@@ -69,16 +76,17 @@ export default function ProductAutocomplete({
     };
 
     return (
-        <div className="w-full relative">
+        <div ref={wrapperRef} className="w-full relative">
             <Input
                 type="text"
                 placeholder="Wpisz produkt..."
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
+                onFocus={() => setHasFocus(true)}
                 error={error}
             />
             {showSuggestions && suggestions.length > 0 && (
-                <ul className="mt-2 border rounded bg-white shadow absolute left-0 right-0 z-10">
+                <ul className="mt-2 border rounded bg-white shadow absolute left-0 right-0 z-10" role="list">
                     {suggestions.map((product, idx) => (
                         <li
                             key={idx}
