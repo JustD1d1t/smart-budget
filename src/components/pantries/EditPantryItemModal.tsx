@@ -35,6 +35,7 @@ export default function EditPantryItemModal({
                     onChange={(e) => onChange({ ...item, category: e.target.value })}
                     options={CATEGORIES}
                     placeholder="Kategoria"
+                    aria-label="Kategoria"
                 />
                 <div className="flex gap-2">
                     <Input
@@ -50,6 +51,7 @@ export default function EditPantryItemModal({
                         onChange={(e) => onChange({ ...item, unit: e.target.value })}
                         options={UNITS}
                         placeholder="Jednostka"
+                        aria-label="Jednostka"
                     />
                 </div>
                 <Input

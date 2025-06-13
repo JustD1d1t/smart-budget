@@ -45,7 +45,7 @@ export default function ProductAutocomplete({
 
         if (filtered.length < 5 && !hasExactMatch) {
             setSuggestions([
-                { name: safeValue, category: "niestandardowy wpis" },
+                { name: safeValue, category: "inne" },
                 ...filtered,
             ]);
         } else {

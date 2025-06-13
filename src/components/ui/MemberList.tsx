@@ -65,7 +65,8 @@ const MemberList = ({ members, isOwner, onInvite, onRemove }: Props) => {
             key={member.id}
             className="flex justify-between items-center border p-2 rounded"
           >
-            <span>{member.email}</span>
+            <span data-testid={`member-email-${member.id}`}>{member.email}</span>
+
             {isOwner && member.role !== "owner" && (
               <Button variant="danger" onClick={() => onRemove(member.id)}>
                 Usuń

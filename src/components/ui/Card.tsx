@@ -7,10 +7,11 @@ interface CardProps {
 
 const Card = ({ children, className = "" }: CardProps) => {
     return (
-        <div className={`bg-white rounded-xl shadow p-4 ${className}`}>
+        <div className={`bg-white rounded-xl shadow p-4 ${className}`} data-testid="card">
             {children}
         </div>
     );
 };
+
 
 export default Card;

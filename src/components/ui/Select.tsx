@@ -1,5 +1,7 @@
+// src/components/ui/Select.tsx
+
 import clsx from "clsx";
-import { ChangeEvent } from "react";
+import React, { ChangeEvent } from "react";
 
 type Props = {
     value: string;
@@ -8,7 +10,8 @@ type Props = {
     placeholder?: string;
     className?: string;
     error?: string;
-};
+    ariaLabel?: string; // dodajemy prop do przekazania aria-label
+} & React.SelectHTMLAttributes<HTMLSelectElement>;
 
 export default function Select({
     value,
@@ -17,6 +20,8 @@ export default function Select({
     placeholder = "-- wybierz --",
     className = "",
     error,
+    ariaLabel,
+    ...rest
 }: Props) {
     return (
         <div>
@@ -30,6 +35,8 @@ export default function Select({
                         : "border-gray-300 focus:ring-black",
                     className
                 )}
+                aria-label={ariaLabel} // przekazujemy aria-label do selecta
+                {...rest} // przekazujemy pozostałe propsy do selecta
             >
                 <option value="">{placeholder}</option>
                 {options.map((option) => (
@@ -40,5 +47,6 @@ export default function Select({
             </select>
             {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
         </div>
+
     );
 }

@@ -37,7 +37,7 @@ const AddItemForm = ({ listId, onItemAdded }: Props) => {
             (product) => product.name.toLowerCase() === name.toLowerCase()
         );
 
-        const category = matchedProduct?.category ?? "niestandardowy wpis";
+        const category = matchedProduct?.category ?? "inne";
 
         try {
             const { data, error } = await supabase
