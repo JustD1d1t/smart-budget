@@ -19,12 +19,12 @@ export default function ExpenseItem({ expense, onEdit, onDelete }: Props) {
                 <div className="col-span-4 flex gap-2 mt-2 sm:col-span-1 sm:mt-0 sm:justify-end">
                     {onEdit && (
                         <Button onClick={() => onEdit(expense.id)} className="text-xs">
-                            ✏️
+                            ✏️ Edytuj
                         </Button>
                     )}
                     {onDelete && (
                         <Button onClick={() => onDelete(expense.id)} className="text-xs">
-                            🗑
+                            🗑 Usuń
                         </Button>
                     )}
                 </div>
