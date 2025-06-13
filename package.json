@@ -3,10 +3,13 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "homepage": "https://justd1d1t.github.io/smart-budget",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "predeploy": "npm run build", // DODANO
+    "deploy": "gh-pages -d dist" // DODANO
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
@@ -28,6 +31,7 @@
     "@vitejs/plugin-react": "^4.4.1",
     "@vitest/ui": "^3.2.3",
     "autoprefixer": "^10.4.21",
+    "gh-pages": "^6.3.0",
     "jsdom": "^26.1.0",
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.3",
