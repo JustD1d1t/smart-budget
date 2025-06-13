@@ -61,10 +61,10 @@ export default function FriendsPage() {
     const accepted = friends.filter(f => f.status === "accepted" && (f.requester_id === userId || f.recipient_id === userId));
 
     return (
-        <div className="p-4 max-w-xl mx-auto space-y-6">
-            <h1 className="text-2xl font-bold">Znajomi</h1>
+        <>
+            <h1 className="text-2xl font-bold mb-4">Znajomi</h1>
 
-            <form onSubmit={handleSubmit} className="flex gap-2">
+            <form onSubmit={handleSubmit} className="flex gap-2 mb-4">
                 <Input
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -155,6 +155,6 @@ export default function FriendsPage() {
                     onClose={() => setToast(null)}
                 />
             )}
-        </div>
+        </>
     );
 }

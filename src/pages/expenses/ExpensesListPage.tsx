@@ -85,7 +85,7 @@ export default function ExpensesListPage() {
     };
 
     return (
-        <div className="p-4 max-w-2xl mx-auto">
+        <>
             <h1 className="text-2xl font-bold mb-4">📋 Lista wydatków</h1>
 
             <ExpenseFilters
@@ -101,24 +101,25 @@ export default function ExpensesListPage() {
 
             {loading ? (
                 <p>Ładowanie...</p>
-            ) : (
-                <ul className="divide-y">
-                    <li className="grid grid-cols-6 gap-2 font-semibold text-sm text-left pb-2">
-                        <span>Sklep</span>
-                        <span>Kwota</span>
-                        <span>Data</span>
-                        <span>Kategoria</span>
-                        <span colSpan={2}></span>
-                    </li>
-                    {visibleExpenses.map((exp) => (
-                        <ExpenseItem
-                            key={exp.id}
-                            expense={exp}
-                            onEdit={exp.user_id === user?.id ? handleEdit : undefined}
-                            onDelete={exp.user_id === user?.id ? handleDelete : undefined}
-                        />
-                    ))}
-                </ul>
+            ) : (<ul className="divide-y">
+                {/* Nagłówek */}
+                <li className="grid grid-cols-4 gap-2 font-semibold text-sm text-left pb-2">
+                    <span>Sklep</span>
+                    <span>Kwota</span>
+                    <span>Data</span>
+                    <span>Kategoria</span>
+                </li>
+                {visibleExpenses.map((exp) => (
+                    <ExpenseItem
+                        key={exp.id}
+                        expense={exp}
+                        onEdit={exp.user_id === user?.id ? handleEdit : undefined}
+                        onDelete={exp.user_id === user?.id ? handleDelete : undefined}
+                    />
+                ))}
+            </ul>
+
+
             )}
 
             {visibleExpenses.length === 0 && !loading && (
@@ -126,6 +127,6 @@ export default function ExpensesListPage() {
             )}
 
             <Button className="mt-6" onClick={() => navigate("/expenses/new")}>➕ Dodaj nowy wydatek</Button>
-        </div>
+        </>
     );
 }

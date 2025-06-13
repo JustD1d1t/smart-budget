@@ -100,15 +100,18 @@ export default function PantryDetailsPage() {
 
       <AddPantryItemForm pantryId={id} onItemAdded={addPantryItem} />
 
-      <div className="flex items-center gap-2 mt-6 mb-2">
-        <Button onClick={() => setGroupedView(!groupedView)} className="text-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-6 mb-2 w-full">
+        <Button
+          onClick={() => setGroupedView(!groupedView)}
+          className="text-sm w-full sm:w-auto"
+        >
           {groupedView ? "Pokaż jako listę" : "Pogrupuj po kategoriach"}
         </Button>
 
         <select
           value={filterCategory}
           onChange={(e) => setFilterCategory(e.target.value)}
-          className="border p-2 rounded text-sm"
+          className="border p-2 rounded text-sm w-full sm:w-auto"
         >
           <option value="all">Wszystkie kategorie</option>
           {categories.map((cat) => (
@@ -122,7 +125,7 @@ export default function PantryDetailsPage() {
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
-            className="border p-2 rounded text-sm"
+            className="border p-2 rounded text-sm w-full sm:w-auto"
           >
             <option value="name">Sortuj alfabetycznie</option>
             <option value="category">Sortuj po kategorii</option>
@@ -130,6 +133,7 @@ export default function PantryDetailsPage() {
           </select>
         )}
       </div>
+
 
       {loading ? (
         <p>Ładowanie...</p>

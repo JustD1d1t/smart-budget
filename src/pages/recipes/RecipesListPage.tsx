@@ -95,7 +95,7 @@ export default function RecipesListPage() {
 
 
   return (
-    <div className="p-4 max-w-3xl mx-auto">
+    <>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">📖 Przepisy</h1>
         <Button onClick={() => navigate("/recipes/new")}>
@@ -154,6 +154,6 @@ export default function RecipesListPage() {
           onClose={() => setToast(null)}
         />
       )}
-    </div>
+    </>
   );
 }

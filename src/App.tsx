@@ -1,9 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { NavLink, Route, Routes } from "react-router-dom";
 import { supabase } from "./lib/supabaseClient";
 import { useUserStore } from "./stores/userStore";
 
-// Pages
+// Pages (tak jak u Ciebie)
+import ProtectedRoute from "./components/ProtectedRoute";
 import ExpensesEditPage from "./pages/expenses/ExpenseEditPage";
 import ExpensesListPage from "./pages/expenses/ExpensesListPage";
 import ExpensesNewPage from "./pages/expenses/ExpensesNewPage";
@@ -18,10 +19,10 @@ import Register from "./pages/Register";
 import ShoppingListDetailsPage from "./pages/shopping-lists/ShoppingListDetailsPage";
 import ShoppingLists from "./pages/shopping-lists/ShoppingListsPage";
 
-import ProtectedRoute from "./components/ProtectedRoute";
-
 export default function App() {
-  // 🔐 Obsługa sesji Supabase po odświeżeniu
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  // Obsługa sesji Supabase
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       useUserStore.getState().setUser(session?.user ?? null, session ?? null);
@@ -43,38 +44,85 @@ export default function App() {
     clearUser();
   };
 
+  // Po kliknięciu linku zamykamy menu na mobile
+  const handleNavClick = () => setMenuOpen(false);
+
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
-      <nav className="p-4 bg-white shadow flex items-center justify-between">
+      <nav className="p-4 bg-white shadow flex items-center justify-between relative z-20">
+        {/* Hamburger button - widoczny tylko na mobile */}
+        {user && (
+          <button
+            className="lg:hidden p-2 mr-2"
+            onClick={() => setMenuOpen(!menuOpen)}
+            aria-label="Menu"
+          >
+            <span className="block w-6 h-0.5 bg-gray-800 mb-1"></span>
+            <span className="block w-6 h-0.5 bg-gray-800 mb-1"></span>
+            <span className="block w-6 h-0.5 bg-gray-800"></span>
+          </button>
+        )}
+
+        {/* Menu desktop */}
         {user ? (
-          <div className="flex gap-4">
-            <NavLink to="/">Listy zakupowe</NavLink>
-            <NavLink to="/recipes">Przepisy</NavLink>
-            <NavLink to="/expenses">Wydatki</NavLink>
-            <NavLink to="/pantry">Spiżarnia</NavLink>
-            <NavLink to="/friends">Znajomi</NavLink>
+          <div className="gap-4 hidden lg:flex">
+            <NavLink to="/" className="px-2 py-1" onClick={handleNavClick}>Listy zakupowe</NavLink>
+            <NavLink to="/recipes" className="px-2 py-1" onClick={handleNavClick}>Przepisy</NavLink>
+            <NavLink to="/expenses" className="px-2 py-1" onClick={handleNavClick}>Wydatki</NavLink>
+            <NavLink to="/pantry" className="px-2 py-1" onClick={handleNavClick}>Spiżarnia</NavLink>
+            <NavLink to="/friends" className="px-2 py-1" onClick={handleNavClick}>Znajomi</NavLink>
           </div>
         ) : <div />}
 
+        {/* Prawa część (login/user) */}
         <div className="flex items-center gap-4">
           {!user ? (
             <>
-              <NavLink to="/login">Logowanie</NavLink>
-              <NavLink to="/register">Rejestracja</NavLink>
+              <NavLink to="/login" className="px-2 py-1">Logowanie</NavLink>
+              <NavLink to="/register" className="px-2 py-1">Rejestracja</NavLink>
             </>
           ) : (
             <>
-              <span className="text-sm text-gray-600">{user.email}</span>
-              <button onClick={handleLogout} className="text-red-500">
-                Wyloguj się
-              </button>
+              <span className="text-sm text-gray-600 hidden sm:block">{user.email}</span>
+              <button onClick={handleLogout} className="text-red-500">Wyloguj się</button>
             </>
           )}
         </div>
+
+        {/* Menu mobile (offcanvas) */}
+        {user && (
+          <div className={`fixed inset-0 z-30 transition-all ${menuOpen ? "block" : "hidden"} lg:hidden`}>
+            {/* Tło */}
+            <div
+              className="absolute inset-0 bg-black bg-opacity-40"
+              onClick={() => setMenuOpen(false)}
+            />
+            {/* Panel menu */}
+            <div className="absolute top-0 left-0 w-64 h-full bg-white shadow-lg p-6 flex flex-col gap-6">
+              <button
+                className="mb-6 self-end text-2xl font-bold"
+                onClick={() => setMenuOpen(false)}
+                aria-label="Zamknij menu"
+              >
+                &times;
+              </button>
+              <NavLink to="/" className="block py-2 px-3 text-lg" onClick={handleNavClick}>Listy zakupowe</NavLink>
+              <NavLink to="/recipes" className="block py-2 px-3 text-lg" onClick={handleNavClick}>Przepisy</NavLink>
+              <NavLink to="/expenses" className="block py-2 px-3 text-lg" onClick={handleNavClick}>Wydatki</NavLink>
+              <NavLink to="/pantry" className="block py-2 px-3 text-lg" onClick={handleNavClick}>Spiżarnia</NavLink>
+              <NavLink to="/friends" className="block py-2 px-3 text-lg" onClick={handleNavClick}>Znajomi</NavLink>
+              <div className="border-t pt-4 mt-auto">
+                <span className="block mb-2 text-gray-700 text-sm">{user.email}</span>
+                <button onClick={handleLogout} className="text-red-500 w-full text-left">
+                  Wyloguj się
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </nav>
 
-
-      <main className="p-6 max-w-4xl mx-auto">
+      <main className="p-3 sm:p-6 max-w-4xl mx-auto">
         <Routes>
           {/* public */}
           <Route path="/login" element={<Login />} />
@@ -106,7 +154,6 @@ export default function App() {
               </ProtectedRoute>
             }
           />
-
           <Route path="/recipes/new" element={
             <ProtectedRoute>
               <NewRecipePage />
@@ -134,7 +181,6 @@ export default function App() {
           } />
           <Route path="/pantry" element={<ProtectedRoute><PantryListPage /></ProtectedRoute>} />
           <Route path="/pantries/:id" element={<ProtectedRoute><PantryDetailsPage /></ProtectedRoute>} />
-
           <Route path="/friends" element={<ProtectedRoute><FriendsPage /></ProtectedRoute>} />
         </Routes>
       </main>

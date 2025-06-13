@@ -8,33 +8,59 @@ interface AccordionProps {
     defaultOpen?: boolean;
 }
 
-const Accordion = ({ title, children, actions, defaultOpen = false }: AccordionProps) => {
+const Accordion = ({
+    title,
+    children,
+    actions,
+    defaultOpen = false,
+}: AccordionProps) => {
     const [isOpen, setIsOpen] = useState(defaultOpen);
 
     return (
-        <div className="border rounded mb-2">
-            <div className="flex justify-between items-center p-4">
-                <button
-                    onClick={() => setIsOpen(!isOpen)}
-                    className="flex-grow text-left font-medium hover:bg-gray-100"
+        <div className="border rounded-xl mb-3 bg-white shadow-sm">
+            {/* Nagłówek */}
+            <button
+                type="button"
+                onClick={() => setIsOpen(!isOpen)}
+                className="
+          w-full flex items-center justify-between gap-2 px-3 py-3 
+          sm:px-4 sm:py-4 
+          font-medium text-base 
+          hover:bg-gray-100 active:bg-gray-200 transition
+          rounded-t-xl
+        "
+                aria-expanded={isOpen}
+            >
+                <span className="flex-1 text-left">{title}</span>
+                <ChevronDownIcon
+                    className={`h-6 w-6 transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`}
+                />
+            </button>
+
+            {/* Akcje — na mobile pod tytułem, na desktopie obok */}
+            {actions && (
+                <div
+                    className="
+            px-3 pb-2 sm:pb-0 sm:px-4
+            flex sm:block justify-end 
+            sm:absolute sm:right-4 sm:top-4
+            text-sm
+          "
                 >
-                    <div className="flex justify-between items-center w-full">
-                        {title}
-                        <ChevronDownIcon
-                            className={`h-5 w-5 transition-transform ${isOpen ? "rotate-180" : ""}`}
-                        />
-                    </div>
-                </button>
-                {actions && (
-                    <div className="ml-2">
-                        {actions}
-                    </div>
-                )}
+                    {actions}
+                </div>
+            )}
+
+            {/* Treść */}
+            <div
+                className={`overflow-hidden transition-[max-height] duration-300 ease-in-out ${isOpen ? "max-h-[1000px] pb-3 px-3 sm:px-4" : "max-h-0"
+                    }`}
+                style={{ transitionProperty: "max-height" }}
+            >
+                {isOpen && <div>{children}</div>}
             </div>
-            {isOpen && <div className="px-4 pb-4">{children}</div>}
         </div>
     );
 };
 
 export default Accordion;
-

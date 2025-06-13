@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import PantryItem from "../../components/pantries/PantryItem";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import Toast from "../../components/ui/Toast";
@@ -83,57 +84,14 @@ export default function PantryListPage() {
                 <p>Brak spiżarni.</p>
             ) : (
                 <ul className="space-y-4">
-                    {pantries.map((pantry, index) => (
-                        <li key={pantry.id} className="border rounded p-4">
-                            <div className="flex justify-between items-center mb-2">
-                                {pantry.isEditing ? (
-                                    <>
-                                        <Input
-                                            value={pantry.name}
-                                            onChange={(e) => {
-                                                const updated = [...pantries];
-                                                updated[index].name = e.target.value;
-                                            }}
-                                        />
-                                        <Button
-                                            onClick={() => {
-                                                handleRenamePantry(pantry.id, pantry.name);
-                                                const updated = [...pantries];
-                                                updated[index].isEditing = false;
-                                            }}
-                                        >
-                                            Zapisz
-                                        </Button>
-                                    </>
-                                ) : (
-                                    <>
-                                        <h2 className="text-lg font-semibold">{pantry.name}</h2>
-                                        <div className="flex gap-2">
-                                            <Button
-                                                variant="outline"
-                                                onClick={() => navigate(`/pantries/${pantry.id}`)}
-                                            >
-                                                Otwórz
-                                            </Button>
-                                            {pantry.isOwner && (
-                                                <>
-                                                    <Button
-                                                        onClick={() => {
-                                                            const updated = [...pantries];
-                                                            updated[index].isEditing = true;
-                                                        }}
-                                                    >
-                                                        Zmień nazwę
-                                                    </Button>
-                                                    <Button variant="danger" onClick={() => handleRemovePantry(pantry.id)}>
-                                                        Usuń
-                                                    </Button>
-                                                </>
-                                            )}
-                                        </div>
-                                    </>
-                                )}
-                            </div>
+                    {pantries.map((pantry) => (
+                        <li key={pantry.id}>
+                            <PantryItem
+                                pantry={pantry}
+                                onOpen={(id) => navigate(`/pantries/${id}`)}
+                                onRemove={pantry.isOwner ? handleRemovePantry : undefined}
+                                onRename={pantry.isOwner ? handleRenamePantry : undefined}
+                            />
                         </li>
                     ))}
                 </ul>

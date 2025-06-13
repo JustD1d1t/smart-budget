@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import ListItem from "../../components/shopping-list/ListItem";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import Toast from "../../components/ui/Toast";
@@ -9,7 +10,6 @@ interface ShoppingList {
   id: string;
   name: string;
   isOwner: boolean;
-  isEditing?: boolean;
 }
 
 const ShoppingListsPage = () => {
@@ -18,6 +18,8 @@ const ShoppingListsPage = () => {
   const [newListName, setNewListName] = useState("");
   const [nameError, setNameError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type?: "error" | "success" } | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
   const navigate = useNavigate();
 
   const fetchLists = async () => {
@@ -33,7 +35,8 @@ const ShoppingListsPage = () => {
       setToast({ message: "Nie udało się pobrać list.", type: "error" });
     } else {
       const withOwnership = listData.map((list) => ({
-        ...list,
+        id: list.id,
+        name: list.name,
         isOwner: list.owner_id === userId,
       }));
       setLists(withOwnership);
@@ -50,7 +53,6 @@ const ShoppingListsPage = () => {
       setNameError("Nazwa nie może być pusta.");
       return;
     }
-
     setNameError(null);
 
     const { data: userData, error: userError } = await supabase.auth.getUser();
@@ -85,7 +87,6 @@ const ShoppingListsPage = () => {
     setToast({ message: "Lista dodana pomyślnie!", type: "success" });
   };
 
-
   const handleRemoveList = async (id: string) => {
     const { error } = await supabase.from("shopping_lists").delete().eq("id", id);
     if (!error) {
@@ -96,14 +97,23 @@ const ShoppingListsPage = () => {
     }
   };
 
-  const handleRenameList = async (id: string, newName: string) => {
-    if (!newName.trim()) return;
-    const { error } = await supabase.from("shopping_lists").update({ name: newName }).eq("id", id);
-    if (!error) {
-      setToast({ message: "Zmieniono nazwę listy", type: "success" });
-    }
+  const handleEditClick = (list: ShoppingList) => {
+    setEditingId(list.id);
+    setEditingName(list.name);
   };
 
+  const handleRenameList = async (id: string) => {
+    if (!editingName.trim()) return;
+    const { error } = await supabase.from("shopping_lists").update({ name: editingName }).eq("id", id);
+    if (!error) {
+      setToast({ message: "Zmieniono nazwę listy", type: "success" });
+      setEditingId(null);
+      setEditingName("");
+      fetchLists();
+    } else {
+      setToast({ message: "Błąd podczas zmiany nazwy", type: "error" });
+    }
+  };
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -128,61 +138,36 @@ const ShoppingListsPage = () => {
         </div>
         <Button onClick={handleAddList}>Dodaj listę</Button>
       </div>
-      {loading ? <p>Ładowanie</p> : lists.length === 0 ? (
+
+      {loading ? (
+        <p>Ładowanie</p>
+      ) : lists.length === 0 ? (
         <p>Brak list zakupowych.</p>
       ) : (
         <ul className="space-y-4">
-          {lists.map((list, index) => (
-            <li key={list.id} className="border rounded p-4">
-              <div className="flex justify-between items-center mb-2">
-                {list.isEditing ? (
-                  <>
-                    <Input
-                      value={list.name}
-                      onChange={(e) => {
-                        const updated = [...lists];
-                        updated[index].name = e.target.value;
-                        setLists(updated);
-                      }}
-                    />
-                    <Button
-                      onClick={() => {
-                        handleRenameList(list.id, list.name);
-                        const updated = [...lists];
-                        updated[index].isEditing = false;
-                        setLists(updated);
-                      }}
-                    >
-                      Zapisz
+          {lists.map((list) => (
+            <li key={list.id}>
+              {editingId === list.id ? (
+                <div className="border rounded-xl p-3 sm:p-4 mb-2 shadow bg-white">
+                  <Input
+                    value={editingName}
+                    onChange={(e) => setEditingName(e.target.value)}
+                    className="mb-2"
+                  />
+                  <div className="flex gap-2">
+                    <Button onClick={() => handleRenameList(list.id)}>Zapisz</Button>
+                    <Button variant="outline" onClick={() => setEditingId(null)}>
+                      Anuluj
                     </Button>
-                  </>
-                ) : (
-                  <>
-                    <h2 className="text-lg font-semibold">{list.name}</h2>
-                    <div className="flex gap-2">
-                      <Button variant="outline" onClick={() => navigate(`/shopping-lists/${list.id}`)}>
-                        Otwórz
-                      </Button>
-                      {list.isOwner && (
-                        <>
-                          <Button
-                            onClick={() => {
-                              const updated = [...lists];
-                              updated[index].isEditing = true;
-                              setLists(updated);
-                            }}
-                          >
-                            Zmień nazwę
-                          </Button>
-                          <Button variant="danger" onClick={() => handleRemoveList(list.id)}>
-                            Usuń
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
+                  </div>
+                </div>
+              ) : (
+                <ListItem
+                  list={list}
+                  onRemove={list.isOwner ? handleRemoveList : undefined}
+                  onEdit={list.isOwner ? () => handleEditClick(list) : undefined}
+                />
+              )}
             </li>
           ))}
         </ul>

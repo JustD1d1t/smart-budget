@@ -9,13 +9,27 @@ type Props = {
 
 export default function ExpenseItem({ expense, onEdit, onDelete }: Props) {
     return (
-        <li className="py-3 grid grid-cols-6 gap-2 text-sm text-left items-center">
+        <li className="grid grid-cols-4 gap-2 py-3 text-sm items-center">
             <span>{expense.store}</span>
             <span>{expense.amount.toFixed(2)} zł</span>
             <span className="text-gray-500">{expense.date}</span>
             <span className="text-gray-400 italic">{expense.category}</span>
-            {onEdit && <Button onClick={() => onEdit(expense.id)}>✏️ Edytuj</Button>}
-            {onDelete && <Button onClick={() => onDelete(expense.id)}>🗑 Usuń</Button>}
+            {/* Przyciski możesz zrobić jako popover/menu, lub wyświetlić pod spodem albo na hover na mobile */}
+            {(onEdit || onDelete) && (
+                <div className="col-span-4 flex gap-2 mt-2 sm:col-span-1 sm:mt-0 sm:justify-end">
+                    {onEdit && (
+                        <Button onClick={() => onEdit(expense.id)} className="text-xs">
+                            ✏️
+                        </Button>
+                    )}
+                    {onDelete && (
+                        <Button onClick={() => onDelete(expense.id)} className="text-xs">
+                            🗑
+                        </Button>
+                    )}
+                </div>
+            )}
         </li>
     );
 }
+
