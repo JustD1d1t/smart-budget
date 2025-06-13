@@ -6,6 +6,7 @@ import GroupedItemList from "../../components/shopping-list/GroupedItemList";
 import ItemList from "../../components/shopping-list/ItemList";
 import Button from "../../components/ui/Button";
 import MemberList from "../../components/ui/MemberList";
+import Modal from "../../components/ui/Modal";
 import Toast from "../../components/ui/Toast";
 import { supabase } from "../../lib/supabaseClient";
 
@@ -43,6 +44,11 @@ interface Recipe {
   }[];
 }
 
+interface Pantry {
+  id: string;
+  name: string;
+}
+
 const ShoppingListDetailsPage = () => {
   const { id } = useParams<{ id: string }>();
   const [items, setItems] = useState<ShoppingItem[]>([]);
@@ -50,12 +56,16 @@ const ShoppingListDetailsPage = () => {
   const [list, setList] = useState<ShoppingList | null>(null);
   const [editingItem, setEditingItem] = useState<ShoppingItem | null>(null);
   const [members, setMembers] = useState<ShoppingListMember[]>([]);
-  const [emailError, setEmailError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type?: "error" | "success" } | null>(null);
   const [isOwner, setIsOwner] = useState(false);
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [sortBy, setSortBy] = useState<"name" | "category">("name");
   const [groupedView, setGroupedView] = useState(false);
+
+  // SPIŻARNIE MODAL
+  const [showPantryModal, setShowPantryModal] = useState(false);
+  const [pantries, setPantries] = useState<Pantry[]>([]);
+  const [selectedPantryId, setSelectedPantryId] = useState<string | null>(null);
 
   const fetchListDetails = async () => {
     const { data, error } = await supabase
@@ -64,9 +74,7 @@ const ShoppingListDetailsPage = () => {
       .eq("id", id)
       .single();
 
-    if (!error && data) {
-      setList(data);
-    }
+    if (!error && data) setList(data);
   };
 
   const fetchItems = async () => {
@@ -76,9 +84,7 @@ const ShoppingListDetailsPage = () => {
       .select("*")
       .eq("list_id", id);
 
-    if (!error && data) {
-      setItems(data);
-    }
+    if (!error && data) setItems(data);
     setLoading(false);
   };
 
@@ -90,13 +96,17 @@ const ShoppingListDetailsPage = () => {
 
     if (!error && data) {
       setMembers(data);
-
       const user = await supabase.auth.getUser();
       const currentUserId = user.data.user?.id;
-
-      const owner = data.find(m => m.user_id === currentUserId && m.role === "owner");
+      const owner = data.find((m) => m.user_id === currentUserId && m.role === "owner");
       setIsOwner(!!owner);
     }
+  };
+
+  // Pobierz spiżarnie użytkownika
+  const fetchPantries = async () => {
+    const { data, error } = await supabase.from("pantries").select("id, name");
+    if (!error && data) setPantries(data);
   };
 
   useEffect(() => {
@@ -104,6 +114,7 @@ const ShoppingListDetailsPage = () => {
       fetchListDetails();
       fetchItems();
       fetchMembers();
+      fetchPantries();
     }
   }, [id]);
 
@@ -154,6 +165,54 @@ const ShoppingListDetailsPage = () => {
     if (!error) {
       setItems((prev) => prev.filter((item) => !item.bought));
     }
+  };
+
+  // OTWÓRZ MODAL SPIŻARNI
+  const handleMoveBoughtToPantry = () => {
+    setShowPantryModal(true);
+    fetchPantries();
+  };
+
+  // FINALNA OPERACJA PO WYBORZE SPIŻARNI
+  const handleConfirmMoveToPantry = async () => {
+    if (!selectedPantryId) {
+      setToast({ message: "Wybierz spiżarnię!", type: "error" });
+      return;
+    }
+    const boughtItems = items.filter((item) => item.bought);
+    if (boughtItems.length === 0) {
+      setToast({ message: "Brak kupionych produktów do przeniesienia.", type: "error" });
+      return;
+    }
+
+    const pantryItemsData = boughtItems.map((item) => ({
+      pantry_id: selectedPantryId,
+      name: item.name,
+      category: item.category,
+      quantity: item.quantity,
+      unit: item.unit,
+    }));
+
+    const { error: insertError } = await supabase.from("pantry_items").insert(pantryItemsData);
+
+    if (insertError) {
+      setToast({ message: "Błąd podczas przenoszenia do spiżarni.", type: "error" });
+      return;
+    }
+
+    // Usuń kupione z listy zakupowej
+    const boughtIds = boughtItems.map((item) => item.id);
+    const { error: deleteError } = await supabase.from("shopping_items").delete().in("id", boughtIds);
+
+    if (deleteError) {
+      setToast({ message: "Błąd podczas usuwania z listy zakupowej.", type: "error" });
+      return;
+    }
+
+    setItems((prev) => prev.filter((item) => !item.bought));
+    setToast({ message: "Przeniesiono produkty do spiżarni!", type: "success" });
+    setShowPantryModal(false);
+    setSelectedPantryId(null);
   };
 
   const removeMember = async (memberId: string) => {
@@ -226,7 +285,6 @@ const ShoppingListDetailsPage = () => {
       fetchMembers();
     }
   };
-
 
   const filteredItems = items
     .filter((item) => filterCategory === "all" || item.category === filterCategory)
@@ -304,8 +362,16 @@ const ShoppingListDetailsPage = () => {
         />
       )}
 
-      <div className="mt-4 text-right">
-        <Button onClick={handleDeleteBoughtItems} variant="danger">Usuń kupione</Button>
+      <div className="mt-4 flex flex-col sm:flex-row gap-2 justify-end items-center">
+        <Button onClick={handleDeleteBoughtItems} variant="danger">
+          Usuń kupione
+        </Button>
+        <Button
+          variant="outline"
+          onClick={handleMoveBoughtToPantry}
+        >
+          Przenieś kupione do spiżarni
+        </Button>
       </div>
 
       {editingItem && (
@@ -315,6 +381,38 @@ const ShoppingListDetailsPage = () => {
           onClose={() => setEditingItem(null)}
           onSave={handleSaveEdit}
         />
+      )}
+
+      {/* === MODAL WYBORU SPIŻARNI === */}
+      {showPantryModal && (
+        <Modal onClose={() => setShowPantryModal(false)} title="Wybierz spiżarnię">
+          <div className="space-y-4">
+            <select
+              className="border p-2 rounded w-full"
+              value={selectedPantryId ?? ""}
+              onChange={(e) => setSelectedPantryId(e.target.value)}
+            >
+              <option value="">-- Wybierz spiżarnię --</option>
+              {pantries.map((pantry) => (
+                <option key={pantry.id} value={pantry.id}>
+                  {pantry.name}
+                </option>
+              ))}
+            </select>
+            <div className="flex gap-2">
+              <Button
+                onClick={handleConfirmMoveToPantry}
+                disabled={!selectedPantryId}
+                className="w-full"
+              >
+                Przenieś
+              </Button>
+              <Button variant="outline" onClick={() => setShowPantryModal(false)} className="w-full">
+                Anuluj
+              </Button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );
