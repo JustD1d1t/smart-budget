@@ -1,7 +1,7 @@
+import { CATEGORIES } from "../../utils/categories";
 import Input from "../ui/Input";
 import Select from "../ui/Select";
 
-const CATEGORIES = ["żywność", "samochód", "rozrywka", "chemia", "inne"];
 const SORT_OPTIONS = [
     { label: "Kategoria (A-Z)", value: "category_asc" },
     { label: "Kategoria (Z-A)", value: "category_desc" },

@@ -1,4 +1,5 @@
 import { PantryItem } from "../../types"; // albo przekaż bezpośrednio typ propsów
+import { CATEGORIES } from "../../utils/categories";
 import Button from "../ui/Button";
 import Input from "../ui/Input";
 import Modal from "../ui/Modal"; // Twój własny wrapper modala
@@ -11,7 +12,6 @@ type Props = {
     onClose: () => void;
 };
 
-const CATEGORIES = ["żywność", "chemia", "napoje", "mrożonki", "inne"];
 const UNITS = ["szt", "kg"];
 
 export default function EditPantryItemModal({

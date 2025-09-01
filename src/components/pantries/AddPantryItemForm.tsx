@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { supabase } from "../../lib/supabaseClient";
+import { CATEGORIES } from "../../utils/categories";
 import Button from "../ui/Button";
 import Input from "../ui/Input";
 import Select from "../ui/Select";
@@ -16,7 +17,6 @@ type Props = {
     }) => void;
 };
 
-const CATEGORIES = ["żywność", "chemia", "napoje", "mrożonki", "inne"];
 const UNITS = ["szt", "kg"];
 
 export default function AddPantryItemForm({ pantryId, onItemAdded }: Props) {

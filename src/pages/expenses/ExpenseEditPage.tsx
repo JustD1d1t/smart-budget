@@ -8,8 +8,7 @@ import Toast from "../../components/ui/Toast";
 import { supabase } from "../../lib/supabaseClient";
 import { Member, useExpensesStore } from "../../stores/expensesStore";
 import { useUserStore } from "../../stores/userStore";
-
-const CATEGORIES = ["żywność", "samochód", "rozrywka", "chemia", "inne"];
+import { CATEGORIES } from "../../utils/categories";
 
 export default function EditExpensePage() {
     const { id } = useParams<{ id: string }>();
