@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import ExpenseFilters from "../../components/expenses/ExpenseFilters";
+import ExpenseFilters, { SortOption } from "../../components/expenses/ExpenseFilters";
 import ExpenseItem from "../../components/expenses/ExpenseItem";
 import Button from "../../components/ui/Button";
 import { useExpensesStore } from "../../stores/expensesStore";
@@ -16,10 +16,7 @@ function formatDateLocal(date: Date): string {
 function getStartAndEndOfMonth(date: Date) {
     const start = new Date(date.getFullYear(), date.getMonth(), 1);
     const end = new Date(date.getFullYear(), date.getMonth() + 1, 0);
-    return {
-        start: formatDateLocal(start),
-        end: formatDateLocal(end),
-    };
+    return { start: formatDateLocal(start), end: formatDateLocal(end) };
 }
 
 function formatPLN(value: number) {
@@ -37,25 +34,33 @@ export default function ExpensesListPage() {
 
     const { expenses, fetchExpenses, deleteExpense, loading } = useExpensesStore();
 
-    const [filterCategory, setFilterCategory] = useState("");
-    const [sortOption, setSortOption] = useState("date_desc");
+    const [sortOption, setSortOption] = useState<SortOption>("date_desc");
     const { start, end } = getStartAndEndOfMonth(new Date());
     const [startDate, setStartDate] = useState(start);
     const [endDate, setEndDate] = useState(end);
 
+    // Multi-select kategorii
+    const [selectedCats, setSelectedCats] = useState<string[]>([]);
+
     useEffect(() => {
         if (user?.id) {
-            // zakładam, że Twoje fetchExpenses przyjmuje (userId, from, to)
             fetchExpenses(user.id, startDate, endDate);
         }
     }, [user?.id, startDate, endDate, fetchExpenses]);
 
-    const visibleExpenses = useMemo(() => {
-        const filtered = filterCategory
-            ? expenses.filter((e) => e.category === filterCategory)
-            : expenses;
+    const categoryOptions = useMemo(() => {
+        const s = new Set<string>();
+        for (const e of expenses) if (e.category) s.add(e.category);
+        return Array.from(s).sort((a, b) => a.localeCompare(b));
+    }, [expenses]);
 
-        return [...filtered].sort((a, b) => {
+    const visibleExpenses = useMemo(() => {
+        const byCats =
+            selectedCats.length > 0
+                ? expenses.filter((e) => selectedCats.includes(e.category))
+                : expenses;
+
+        return [...byCats].sort((a, b) => {
             switch (sortOption) {
                 case "category_asc":
                     return (a.category || "").localeCompare(b.category || "");
@@ -73,9 +78,8 @@ export default function ExpensesListPage() {
                     return 0;
             }
         });
-    }, [expenses, filterCategory, sortOption]);
+    }, [expenses, selectedCats, sortOption]);
 
-    // 🔽 SUMA z aktualnie wyświetlanych wydatków (bez zmian w store)
     const totalVisible = useMemo(
         () => visibleExpenses.reduce((acc, e) => acc + (Number(e.amount) || 0), 0),
         [visibleExpenses]
@@ -90,36 +94,42 @@ export default function ExpensesListPage() {
         navigate(`/expenses/edit/${id}`);
     };
 
-    // 🔽 klik w ikonę → bez nowej strony, tylko query param ?details=1
-    const openDetails = () => {
-        const url = new URL(window.location.href);
-        url.searchParams.set("details", "1");
-        navigate(`${location.pathname}${url.search}`);
+    // Query → /expenses/chart
+    const buildSearch = () => {
+        const sp = new URLSearchParams();
+        if (startDate) sp.set("from", startDate);
+        if (endDate) sp.set("to", endDate);
+        if (selectedCats.length > 0) sp.set("categories", selectedCats.join(","));
+        if (sortOption) sp.set("sort", sortOption);
+        const s = sp.toString();
+        return s ? `?${s}` : "";
+        // chart strona i tak sortu nie użyje, ale niech leci dla spójności URL
+    };
+
+    const goToChart = () => {
+        navigate(`/expenses/chart${buildSearch()}`);
     };
 
     return (
         <>
-            <h1 className="text-2xl font-bold mb-4">📋 Lista wydatków</h1>
+            <h1 className="mb-4 text-2xl font-bold">📋 Lista wydatków</h1>
 
             <ExpenseFilters
-                filterCategory={filterCategory}
-                onFilterCategoryChange={setFilterCategory}
-                sortOption={sortOption}
-                onSortOptionChange={setSortOption}
                 startDate={startDate}
                 endDate={endDate}
                 onStartDateChange={setStartDate}
                 onEndDateChange={setEndDate}
+                categories={categoryOptions}
+                selectedCategories={selectedCats}
+                onSelectedCategoriesChange={setSelectedCats}
+                sortOption={sortOption}
+                onSortOptionChange={setSortOption}
             />
 
             <div className="mb-6 flex items-center justify-between">
                 <Button onClick={() => navigate("/expenses/new")}>➕ Dodaj nowy wydatek</Button>
-
-                {/* 🔽 Pasek podsumowania — kompaktowy, obok przycisku, jeśli chcesz go "pod" przyciskiem,
-              przenieś cały ten <div> niżej i daj pełną szerokość */}
             </div>
 
-            {/* 🔽 Wersja "pod przyciskiem": pełna szerokość, suma po lewej, ikona po prawej */}
             <div className="mb-6 flex items-center justify-between rounded-xl border p-4">
                 <div>
                     <div className="text-sm font-medium">Suma wydatków w wybranym okresie</div>
@@ -128,12 +138,11 @@ export default function ExpensesListPage() {
 
                 <button
                     type="button"
-                    onClick={openDetails}
+                    onClick={goToChart}
                     aria-label="Przejdź do szczegółów wydatków"
                     className="inline-flex items-center rounded-full p-2 hover:bg-black/5"
                     title="Szczegóły"
                 >
-                    {/* Prosta ikona strzałki; możesz podmienić na lucide-react ArrowRightCircle */}
                     <svg width="28" height="28" viewBox="0 0 24 24" aria-hidden>
                         <path d="M12 4l1.41 1.41L8.83 10H20v2H8.83l4.58 4.59L12 18l-8-8 8-8z" />
                     </svg>
@@ -144,8 +153,7 @@ export default function ExpensesListPage() {
                 <p>Ładowanie...</p>
             ) : (
                 <ul className="divide-y">
-                    {/* Nagłówek */}
-                    <li className="grid grid-cols-4 gap-2 font-semibold text-sm text-left pb-2">
+                    <li className="grid grid-cols-4 gap-2 pb-2 text-left text-sm font-semibold">
                         <span>Sklep</span>
                         <span>Kwota</span>
                         <span>Data</span>
