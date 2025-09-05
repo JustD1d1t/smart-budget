@@ -9,6 +9,8 @@ export type SortOption =
     | "category_asc"
     | "category_desc";
 
+export type CollaborationFilter = "all" | "own" | "with_collaborators";
+
 type Props = {
     // Daty
     startDate: string;
@@ -20,6 +22,10 @@ type Props = {
     categories?: string[]; // jeżeli nie podasz, użyje CATEGORIES z utils
     selectedCategories: string[]; // pusta tablica = "wszystkie"
     onSelectedCategoriesChange: (v: string[]) => void;
+
+    // Filtr według współtwórców (WYMAGANY)
+    collabFilter: CollaborationFilter;
+    onCollabFilterChange: (v: CollaborationFilter) => void;
 
     // Sort (opcjonalnie – pokaże sekcję tylko gdy oba poniższe propsy są podane)
     sortOption?: SortOption;
@@ -60,6 +66,17 @@ function sortLabel(opt: SortOption): string {
     return map[opt] ?? String(opt);
 }
 
+function collabLabel(v: CollaborationFilter): string {
+    switch (v) {
+        case "own":
+            return "Własne";
+        case "with_collaborators":
+            return "Ze współtwórcami";
+        default:
+            return "Wszystkie";
+    }
+}
+
 export default function ExpenseFilters({
     startDate,
     endDate,
@@ -69,6 +86,9 @@ export default function ExpenseFilters({
     categories,
     selectedCategories,
     onSelectedCategoriesChange,
+
+    collabFilter,
+    onCollabFilterChange,
 
     sortOption,
     onSortOptionChange,
@@ -91,9 +111,18 @@ export default function ExpenseFilters({
         parts.push(`od ${startDate || "—"}`);
         parts.push(`do ${endDate || "—"}`);
         parts.push(`kategorie: ${catSummary}`);
+        parts.push(`typ: ${collabLabel(collabFilter)}`);
         if (sortOption && onSortOptionChange) parts.push(`sort: ${sortLabel(sortOption)}`);
         return parts.join(" • ");
-    }, [startDate, endDate, selectedCategories, cats.length, sortOption, onSortOptionChange]);
+    }, [
+        startDate,
+        endDate,
+        selectedCategories,
+        cats.length,
+        sortOption,
+        onSortOptionChange,
+        collabFilter,
+    ]);
 
     const allSelected =
         selectedCategories.length > 0 && selectedCategories.length === cats.length;
@@ -198,13 +227,31 @@ export default function ExpenseFilters({
                             </div>
                         </label>
 
+                        {/* Typ wydatków (współtwórcy) */}
+                        <label className="flex flex-col gap-1 md:col-span-1">
+                            <span className="text-sm font-medium">Typ wydatków</span>
+                            <select
+                                value={collabFilter}
+                                onChange={(e) =>
+                                    onCollabFilterChange(e.target.value as CollaborationFilter)
+                                }
+                                className="rounded-md border px-3 py-2"
+                            >
+                                <option value="all">Wszystkie</option>
+                                <option value="own">Własne (bez współtwórców)</option>
+                                <option value="with_collaborators">Ze współtwórcami</option>
+                            </select>
+                        </label>
+
                         {/* Sort (opcjonalnie) */}
                         {sortOption && onSortOptionChange && (
                             <label className="flex flex-col gap-1 md:col-span-1">
                                 <span className="text-sm font-medium">Sortowanie</span>
                                 <select
                                     value={sortOption}
-                                    onChange={(e) => onSortOptionChange(e.target.value as SortOption)}
+                                    onChange={(e) =>
+                                        onSortOptionChange(e.target.value as SortOption)
+                                    }
                                     className="rounded-md border px-3 py-2"
                                 >
                                     <option value="date_desc">Data ↓ (najnowsze)</option>

@@ -38,6 +38,7 @@ export default function ExpensesListPage() {
     const { start, end } = getStartAndEndOfMonth(new Date());
     const [startDate, setStartDate] = useState(start);
     const [endDate, setEndDate] = useState(end);
+    const [collabFilter, setCollabFilter] = useState<"all" | "own" | "with_collaborators">("all");
 
     // Multi-select kategorii
     const [selectedCats, setSelectedCats] = useState<string[]>([]);
@@ -55,12 +56,30 @@ export default function ExpensesListPage() {
     }, [expenses]);
 
     const visibleExpenses = useMemo(() => {
+        // 1) filtr po kategoriach
         const byCats =
             selectedCats.length > 0
                 ? expenses.filter((e) => selectedCats.includes(e.category))
                 : expenses;
 
-        return [...byCats].sort((a, b) => {
+        // 2) filtr "własne / ze współtwórcami / wszystkie"
+        const byCollab = byCats.filter((e) => {
+            if (collabFilter === "all") return true;
+
+            // Spróbujmy policzyć członków różnymi polami, w zależności od modelu:
+            const memberCount =
+                (Array.isArray(e.members) ? e.members.length : undefined) ??
+                (Array.isArray(e.shared_user_ids) ? e.shared_user_ids.length : undefined) ??
+                // fallback: jeśli nie mamy pól członków, to traktuj jako "tylko właściciel"
+                1;
+
+            if (collabFilter === "own") return memberCount <= 1;
+            // "with_collaborators"
+            return memberCount > 1;
+        });
+
+        // 3) sortowanie
+        return [...byCollab].sort((a, b) => {
             switch (sortOption) {
                 case "category_asc":
                     return (a.category || "").localeCompare(b.category || "");
@@ -78,7 +97,7 @@ export default function ExpensesListPage() {
                     return 0;
             }
         });
-    }, [expenses, selectedCats, sortOption]);
+    }, [expenses, selectedCats, sortOption, collabFilter]);
 
     const totalVisible = useMemo(
         () => visibleExpenses.reduce((acc, e) => acc + (Number(e.amount) || 0), 0),
@@ -124,6 +143,8 @@ export default function ExpensesListPage() {
                 onSelectedCategoriesChange={setSelectedCats}
                 sortOption={sortOption}
                 onSortOptionChange={setSortOption}
+                collabFilter={collabFilter}
+                onCollabFilterChange={setCollabFilter}
             />
 
             <div className="mb-6 flex items-center justify-between">
