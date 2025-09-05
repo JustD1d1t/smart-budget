@@ -237,7 +237,7 @@ export default function ExpensesChartPage() {
                 <div className="mb-3 flex items-center justify-between">
                     <h2 className="text-lg font-semibold">Wydatki dzienne</h2>
                     <span className="text-sm text-gray-500">
-                        Punkty: {chartData.length} • Ładowanie: {loading ? "tak" : "nie"}
+                        Punkty: {chartData.length}
                     </span>
                 </div>
 
@@ -275,7 +275,7 @@ export default function ExpensesChartPage() {
                 <div className="mb-3 flex items-center justify-between">
                     <h2 className="text-lg font-semibold">Wydatki wg kategorii</h2>
                     <span className="text-sm text-gray-500">
-                        Kategorie: {categoryData.length} • Ładowanie: {loading ? "tak" : "nie"}
+                        Kategorie: {categoryData.length} 
                     </span>
                 </div>
 

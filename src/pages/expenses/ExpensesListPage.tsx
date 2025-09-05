@@ -68,8 +68,8 @@ export default function ExpensesListPage() {
 
             // Spróbujmy policzyć członków różnymi polami, w zależności od modelu:
             const memberCount =
-                (Array.isArray(e.members) ? e.members.length : undefined) ??
-                (Array.isArray(e.shared_user_ids) ? e.shared_user_ids.length : undefined) ??
+                (Array.isArray((e as any).members) ? (e as any).members.length : undefined) ??
+                (Array.isArray((e as any).shared_user_ids) ? (e as any).shared_user_ids.length : undefined) ??
                 // fallback: jeśli nie mamy pól członków, to traktuj jako "tylko właściciel"
                 1;
 

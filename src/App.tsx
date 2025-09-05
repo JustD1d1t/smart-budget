@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink, Route, Routes } from "react-router-dom";
+import { cleanupOldReceipts } from "./lib/cleanupReceipts";
 import { supabase } from "./lib/supabaseClient";
 import { useUserStore } from "./stores/userStore";
 
@@ -44,6 +45,28 @@ export default function App() {
     await supabase.auth.signOut();
     clearUser();
   };
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    // odpalaj max raz na dobę (per urządzenie / przeglądarka)
+    const KEY = `__receiptsCleanup:last:${user.id}`;
+    const last = Number(localStorage.getItem(KEY) || 0);
+    const now = Date.now();
+    const DAY = 24 * 60 * 60 * 1000;
+
+    if (now - last < DAY) return;
+
+    (async () => {
+      try {
+        await cleanupOldReceipts(user.id, 90); // 90 dni
+      } catch {
+        // cicho – nie pokazujemy nic userowi
+      } finally {
+        localStorage.setItem(KEY, String(Date.now()));
+      }
+    })();
+  }, [user?.id]);
 
   // Po kliknięciu linku zamykamy menu na mobile
   const handleNavClick = () => setMenuOpen(false);
