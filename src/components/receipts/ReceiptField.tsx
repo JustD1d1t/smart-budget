@@ -152,7 +152,7 @@ export default function ReceiptField({
             {/* Błąd z zewnątrz */}
             {!!errorText && <div className="text-xs text-red-600">{errorText}</div>}
 
-            {/* LIGHTBOX */}
+            {/* LIGHTBOX (max 70% wysokości okna + przycisk zamknięcia) */}
             {lightbox && (
                 <div
                     className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
@@ -160,13 +160,22 @@ export default function ReceiptField({
                     aria-modal="true"
                     onClick={() => setLightbox(null)}
                 >
-                    <div className="relative" onClick={(e) => e.stopPropagation()}>
-                        <img
-                            src={lightbox.src}
-                            alt={lightbox.alt}
-                            className="w-full rounded-lg shadow-xl object-contain"
-                            style={{ maxWidth: `${lightboxMaxWidth}px` }}
-                        />
+                    <div
+                        className="relative w-full"
+                        style={{ maxWidth: `${lightboxMaxWidth}px` }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Kontener z limitem wysokości 70vh i przewijaniem w razie potrzeby */}
+                        <div className="max-h-[70vh] overflow-auto rounded-lg shadow-xl bg-white/0">
+                            <img
+                                src={lightbox.src}
+                                alt={lightbox.alt}
+                                className="w-full h-auto object-contain"
+                                style={{ maxHeight: "70vh" }}
+                            />
+                        </div>
+
+                        {/* Przyciski zamykania */}
                         <button
                             type="button"
                             aria-label="Zamknij"
@@ -176,6 +185,16 @@ export default function ReceiptField({
                         >
                             ✕
                         </button>
+
+                        <div className="mt-3 flex justify-end">
+                            <button
+                                type="button"
+                                onClick={() => setLightbox(null)}
+                                className="rounded-md border px-3 py-1.5 text-sm bg-white hover:bg-gray-50 shadow"
+                            >
+                                Zamknij podgląd
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
