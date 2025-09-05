@@ -249,7 +249,7 @@ export default function EditExpensePage() {
     );
 
     return (
-        <div className="p-4 max-w-xl mx-auto space-y-4">
+        <div className="max-w-xl mx-auto space-y-4">
             <h1 className="text-2xl font-bold">✏️ Edytuj wydatek</h1>
 
             {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}

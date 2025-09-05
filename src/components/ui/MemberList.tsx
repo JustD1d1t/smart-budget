@@ -22,9 +22,14 @@ const MemberList = ({ members, isOwner, onInvite, onRemove }: Props) => {
 
   useEffect(() => {
     fetchFriends();
-  }, []);
+  }, [fetchFriends]);
 
-  const acceptedFriends = friends.filter((f) => f.status === "accepted");
+  const acceptedFriends = (friends || []).filter((f) => f.status === "accepted");
+
+  // 🔸 Jeśli nie ma żadnych znajomych → nic nie pokazujemy (brak Accordionu)
+  if (acceptedFriends.length === 0) {
+    return null;
+  }
 
   const availableEmails = acceptedFriends
     .map((f) => f.user_email)

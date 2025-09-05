@@ -1,52 +1,58 @@
-// src/components/ui/Select.tsx
-
-import clsx from "clsx";
-import React, { ChangeEvent } from "react";
+import React from "react";
 
 type Props = {
     value: string;
-    onChange: (e: ChangeEvent<HTMLSelectElement>) => void;
+    onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
     options: string[];
     placeholder?: string;
-    className?: string;
     error?: string;
-    ariaLabel?: string; // dodajemy prop do przekazania aria-label
-} & React.SelectHTMLAttributes<HTMLSelectElement>;
+    disabled?: boolean;
+};
 
 export default function Select({
     value,
     onChange,
     options,
     placeholder = "-- wybierz --",
-    className = "",
     error,
-    ariaLabel,
-    ...rest
+    disabled,
 }: Props) {
     return (
-        <div>
+        <div className="relative">
             <select
                 value={value}
                 onChange={onChange}
-                className={clsx(
-                    "w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2",
-                    error
-                        ? "border-red-500 focus:ring-red-500"
-                        : "border-gray-300 focus:ring-black",
-                    className
-                )}
-                aria-label={ariaLabel} // przekazujemy aria-label do selecta
-                {...rest} // przekazujemy pozostałe propsy do selecta
+                disabled={disabled}
+                className={[
+                    // te same „bazowe” klasy co w Input
+                    "w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm",
+                    "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500",
+                    // by strzałka systemowa nie psuła stylu
+                    "appearance-none pr-10",
+                    disabled ? "opacity-60 cursor-not-allowed" : "",
+                    error ? "border-red-500" : "",
+                ].join(" ")}
             >
                 <option value="">{placeholder}</option>
-                {options.map((option) => (
-                    <option key={option} value={option}>
-                        {option}
+                {options.map((o) => (
+                    <option key={o} value={o}>
+                        {o}
                     </option>
                 ))}
             </select>
-            {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
-        </div>
 
+            <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
+                <svg
+                    className="h-4 w-4 text-gray-500"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    aria-hidden
+                >
+                    <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+            </div>
+
+            {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+        </div>
     );
 }

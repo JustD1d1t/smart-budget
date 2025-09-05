@@ -1,26 +1,23 @@
-import clsx from "clsx";
 import React from "react";
 
-interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+type Props = React.InputHTMLAttributes<HTMLInputElement> & {
     error?: string;
-}
-
-const Input = ({ error, className, ...props }: InputProps) => {
-    return (
-        <>
-            <input
-                {...props}
-                className={clsx(
-                    "w-full p-2 border rounded text-sm focus:outline-none focus:ring-2",
-                    error
-                        ? "border-red-500 focus:ring-red-500"
-                        : "border-gray-300 focus:ring-black",
-                    className
-                )}
-            />
-            {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
-        </>
-    );
 };
 
-export default Input;
+export default function Input({ error, className = "", type = "text", ...rest }: Props) {
+    const base =
+        "w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500";
+
+    // dla date — ujednolicenie wysokości + wyglądu
+    const dateFix =
+        type === "date"
+            ? "appearance-none h-10 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+            : "";
+
+    return (
+        <div>
+            <input type={type} className={[base, dateFix, className].join(" ")} {...rest} />
+            {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+        </div>
+    );
+}
