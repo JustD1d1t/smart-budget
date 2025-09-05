@@ -113,6 +113,8 @@ export default function ExpensesListPage() {
         navigate(`/expenses/edit/${id}`);
     };
 
+    const handlePreview = (id: string) => navigate(`/expenses/view/${id}`);
+
     // Query → /expenses/chart
     const buildSearch = () => {
         const sp = new URLSearchParams();
@@ -185,6 +187,7 @@ export default function ExpensesListPage() {
                         <ExpenseItem
                             key={exp.id}
                             expense={exp}
+                            onPreview={handlePreview}
                             onEdit={exp.user_id === user?.id ? handleEdit : undefined}
                             onDelete={exp.user_id === user?.id ? handleDelete : undefined}
                         />

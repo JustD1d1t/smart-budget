@@ -7,6 +7,7 @@ import { useUserStore } from "./stores/userStore";
 // Pages (tak jak u Ciebie)
 import ProtectedRoute from "./components/ProtectedRoute";
 import ExpensesEditPage from "./pages/expenses/ExpenseEditPage";
+import ExpensePreviewPage from "./pages/expenses/ExpensePreviewPage";
 import ExpensesChartPage from "./pages/expenses/ExpensesChartPage";
 import ExpensesListPage from "./pages/expenses/ExpensesListPage";
 import ExpensesNewPage from "./pages/expenses/ExpensesNewPage";
@@ -201,6 +202,11 @@ export default function App() {
           <Route path="/expenses/edit/:id" element={
             <ProtectedRoute>
               <ExpensesEditPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/expenses/view/:id" element={
+            <ProtectedRoute>
+              <ExpensePreviewPage />
             </ProtectedRoute>
           } />
           <Route path="/expenses/chart" element={<ExpensesChartPage />} />
