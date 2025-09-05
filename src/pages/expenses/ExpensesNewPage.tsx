@@ -16,7 +16,8 @@ export default function ExpensesNewPage() {
     const { addExpense } = useExpensesStore();
     const navigate = useNavigate();
 
-    const [amount, setAmount] = useState(0);
+    // ⬇️ TRZYMAJ KWOTĘ JAKO STRING (żeby nie zerowało przy ".")
+    const [amountStr, setAmountStr] = useState("");
     const [store, setStore] = useState("");
     const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
     const [category, setCategory] = useState("");
@@ -58,11 +59,15 @@ export default function ExpensesNewPage() {
         setSharedWith((prev) => prev.filter((m) => m.id !== id));
     };
 
+    // prosty parser: zamienia przecinek na kropkę i rzutuje
+    const parseAmount = (s: string) => Number((s || "").replace(",", "."));
+
     const validateForm = () => {
         let isValid = true;
 
-        if (!amount || amount <= 0) {
-            setAmountError("Kwota musi być większa od zera.");
+        const parsedAmount = parseAmount(amountStr);
+        if (!amountStr.trim() || isNaN(parsedAmount) || parsedAmount <= 0) {
+            setAmountError("Kwota musi być liczbą większą od zera.");
             isValid = false;
         } else setAmountError("");
 
@@ -90,7 +95,7 @@ export default function ExpensesNewPage() {
             isValid = false;
         }
 
-        return isValid;
+        return { isValid, parsedAmount };
     };
 
     const randomName = (ext: string) => {
@@ -102,14 +107,15 @@ export default function ExpensesNewPage() {
     };
 
     const handleAdd = async () => {
-        if (!validateForm() || !user?.id) return;
+        const { isValid, parsedAmount } = validateForm();
+        if (!isValid || !user?.id) return;
 
         setUploading(true);
         try {
-            // 1) utwórz wydatek
+            // 1) utwórz wydatek (użyj sparsowanej liczby)
             const result: any = await addExpense(
                 {
-                    amount,
+                    amount: parsedAmount,
                     store: store.trim(),
                     date,
                     category,
@@ -173,11 +179,13 @@ export default function ExpensesNewPage() {
                 onRemove={handleRemoveFromThisExpense}
             />
 
+            {/* Kwota jako TEKST z inputMode="decimal" (nie zeruje przy ".") */}
             <Input
-                type="number"
+                type="text"
+                inputMode="decimal"
                 placeholder="Kwota (zł)"
-                value={amount.toString()}
-                onChange={(e) => setAmount(Number(e.target.value))}
+                value={amountStr}
+                onChange={(e) => setAmountStr(e.target.value)}
                 error={amountError}
             />
 
