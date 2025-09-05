@@ -83,12 +83,12 @@ export default function ReceiptField({
     };
 
     return (
-        <div className="space-y-2">
+        <div>
             <label className="text-sm font-medium">{label}</label>
 
             {/* Istniejący paragon (jeśli jest i nie ma wybranego nowego pliku) */}
             {!file && existing?.url && (
-                <div className="relative w-full max-w-xs rounded-md border p-1">
+                <div className="relative w-full max-w-xs rounded-md border p-1 mt-2">
                     <img
                         src={existing.url}
                         alt={existing.name || "Paragon"}
@@ -129,7 +129,7 @@ export default function ReceiptField({
 
             {/* Podgląd nowo wybranego pliku */}
             {preview && (
-                <div className="relative w-full max-w-xs">
+                <div className="relative w-full max-w-xs mt-2">
                     <img
                         src={preview}
                         alt="Podgląd paragonu"
@@ -174,17 +174,6 @@ export default function ReceiptField({
                                 style={{ maxHeight: "70vh" }}
                             />
                         </div>
-
-                        {/* Przyciski zamykania */}
-                        <button
-                            type="button"
-                            aria-label="Zamknij"
-                            title="Zamknij"
-                            onClick={() => setLightbox(null)}
-                            className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-white text-black shadow grid place-items-center"
-                        >
-                            ✕
-                        </button>
 
                         <div className="mt-3 flex justify-end">
                             <button
