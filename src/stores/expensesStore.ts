@@ -189,17 +189,54 @@ export const useExpensesStore = create<ExpensesStore>((set, get) => ({
 
   deleteExpense: async (id, userId) => {
     const { expenses } = get();
-    const toDelete = expenses.find((e) => e.id === id);
-    if (!toDelete) return;
-    if (toDelete.user_id !== userId) return;
+    const exp = expenses.find((e) => e.id === id);
+    if (!exp || exp.user_id !== userId) return;
 
-    const { error } = await supabase.from("expenses").delete().eq("id", id);
-    if (error) {
-      console.error("[deleteExpense] delete error:", error.message);
-      return;
+    try {
+      // 0) Ustal ścieżkę paragonu (na wszelki wypadek dociągnij z DB)
+      let receiptPath = exp.receipt_path ?? null;
+      if (!receiptPath) {
+        const { data: row } = await supabase
+          .from("expenses")
+          .select("receipt_path")
+          .eq("id", id)
+          .single();
+        receiptPath = row?.receipt_path ?? null;
+      }
+
+      // 1) Usuń plik ze Storage (best-effort)
+      if (receiptPath) {
+        const { error: rmErr } = await supabase.storage
+          .from("receipts")
+          .remove([receiptPath]);
+        if (rmErr)
+          console.warn("[deleteExpense] storage remove warn:", rmErr.message);
+      }
+
+      // 2) Usuń powiązania viewerów (jeśli masz FK bez CASCADE)
+      const { error: vwErr } = await supabase
+        .from("expense_viewers")
+        .delete()
+        .eq("expense_id", id);
+      if (vwErr)
+        console.warn("[deleteExpense] viewers delete warn:", vwErr.message);
+
+      // 3) Usuń sam wydatek (z dodatkowym sprawdzeniem właściciela)
+      const { error } = await supabase
+        .from("expenses")
+        .delete()
+        .eq("id", id)
+        .eq("user_id", userId);
+      if (error) {
+        console.error("[deleteExpense] delete error:", error.message);
+        return;
+      }
+
+      // 4) Aktualizacja store
+      set({ expenses: expenses.filter((e) => e.id !== id) });
+    } catch (e) {
+      console.error("[deleteExpense] unexpected:", e);
     }
-
-    set({ expenses: expenses.filter((e) => e.id !== id) });
   },
 
   setExpenses: (expenses) => set({ expenses }),
