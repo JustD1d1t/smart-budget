@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import ReceiptField from "../../components/receipts/ReceiptField";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import MemberList from "../../components/ui/MemberList";
@@ -10,7 +11,7 @@ import { Member, useExpensesStore } from "../../stores/expensesStore";
 import { useUserStore } from "../../stores/userStore";
 import { CATEGORIES } from "../../utils/categories";
 
-type StoredReceipt = {
+type ExistingReceiptState = {
     path: string;
     url: string;
     name: string;
@@ -18,7 +19,6 @@ type StoredReceipt = {
 };
 
 const SUPPORTED_EXT = /\.(png|jpe?g|webp|gif)$/i;
-const ACCEPT_ATTR = "image/png,image/jpeg,image/jpg,image/webp,image/gif";
 
 export default function EditExpensePage() {
     const { id } = useParams<{ id: string }>();
@@ -36,33 +36,14 @@ export default function EditExpensePage() {
     const [toast, setToast] = useState<{ message: string; type?: "error" | "success" } | null>(null);
 
     // JEDEN zapisany paragon (jeśli istnieje)
-    const [existingReceipt, setExistingReceipt] = useState<StoredReceipt | null>(null);
+    const [existingReceipt, setExistingReceipt] = useState<ExistingReceiptState | null>(null);
     const [loadingReceipt, setLoadingReceipt] = useState(false);
 
-    // JEDEN nowy plik
+    // JEDEN nowy plik (kontrolowany przez stronę)
     const [file, setFile] = useState<File | null>(null);
-    const [preview, setPreview] = useState<string | null>(null);
     const [uploading, setUploading] = useState(false);
 
-    // Lightbox
-    const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(null);
-    useEffect(() => {
-        const onKey = (e: KeyboardEvent) => e.key === "Escape" && setLightbox(null);
-        if (lightbox) document.addEventListener("keydown", onKey);
-        return () => document.removeEventListener("keydown", onKey);
-    }, [lightbox]);
-
-    useEffect(() => {
-        if (!file) {
-            setPreview(null);
-            return;
-        }
-        const url = URL.createObjectURL(file);
-        setPreview(url);
-        return () => URL.revokeObjectURL(url);
-    }, [file]);
-
-    // wczytanie podstawowych danych
+    // Wczytanie podstawowych danych wydatku + viewers
     useEffect(() => {
         if (!id) return;
         const found = expenses.find((e) => e.id === id && e.user_id === user?.id);
@@ -94,7 +75,7 @@ export default function EditExpensePage() {
         fetchViewers();
     }, [id, expenses, user?.id]);
 
-    // wczytaj jeden zapisany paragon (jeśli jest) – bierzemy najnowszy z listy
+    // Wczytaj najnowszy zapisany paragon (z podpisanym URL)
     useEffect(() => {
         const loadReceipt = async () => {
             if (!id || !user?.id) return;
@@ -103,17 +84,26 @@ export default function EditExpensePage() {
                 const folder = `${user.id}/${id}`;
                 const { data: list, error } = await supabase.storage
                     .from("receipts")
-                    .list(folder, { limit: 100, sortBy: { column: "updated_at", order: "desc" } as any });
+                    .list(folder, { limit: 1000 });
                 if (error) {
                     console.warn("[STORAGE] list error:", error);
                     setExistingReceipt(null);
                     return;
                 }
-                const first = (list ?? [])[0];
-                if (!first) {
+                if (!list || list.length === 0) {
                     setExistingReceipt(null);
                     return;
                 }
+
+                // Wybierz najnowszy wg created_at (jeśli brak, sort po name)
+                const sorted = [...list].sort((a: any, b: any) => {
+                    const da = a.created_at ? new Date(a.created_at).getTime() : 0;
+                    const db = b.created_at ? new Date(b.created_at).getTime() : 0;
+                    if (db !== da) return db - da;
+                    return String(b.name).localeCompare(String(a.name));
+                });
+
+                const first = sorted[0];
                 const fullPath = `${folder}/${first.name}`;
                 const { data: signed, error: sErr } = await supabase.storage
                     .from("receipts")
@@ -123,6 +113,7 @@ export default function EditExpensePage() {
                     setExistingReceipt(null);
                     return;
                 }
+
                 setExistingReceipt({
                     path: fullPath,
                     url: signed!.signedUrl,
@@ -173,7 +164,6 @@ export default function EditExpensePage() {
             setToast({ message: "Nie udało się usunąć paragonu.", type: "error" });
             return;
         }
-        // wyczyść wskaźnik w expenses (opcjonalne kolumny)
         await supabase.from("expenses").update({ receipt_path: null, receipt_mime: null }).eq("id", id);
         setExistingReceipt(null);
         setToast({ message: "Paragon usunięty.", type: "success" });
@@ -203,13 +193,13 @@ export default function EditExpensePage() {
                 return;
             }
 
-            // 2) jeśli wybrano NOWY plik → ewentualnie usuń stary i wgraj nowy (tylko obraz)
+            // 2) upload nowego pliku (jeśli wybrany) – jeden obraz
             if (file) {
                 const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
                 if (!SUPPORTED_EXT.test("." + ext)) {
                     setToast({ message: "Nieobsługiwany format obrazu.", type: "error" });
                 } else {
-                    // usuń istniejący paragon (jeśli był)
+                    // Usuń stary, jeśli był
                     if (existingReceipt) {
                         await supabase.storage.from("receipts").remove([existingReceipt.path]);
                     }
@@ -223,7 +213,7 @@ export default function EditExpensePage() {
                     if (upErr) {
                         setToast({ message: "Nie udało się wgrać nowego paragonu.", type: "error" });
                     } else {
-                        // ustaw wskaźnik w expenses (opcjonalne kolumny)
+                        // zaktualizuj wskaźnik w expenses
                         await supabase
                             .from("expenses")
                             .update({ receipt_path: path, receipt_mime: file.type || null })
@@ -293,86 +283,19 @@ export default function EditExpensePage() {
                 rows={3}
             />
 
-            {/* Zapisany paragon (jeden) */}
-            <section className="space-y-2">
-                <div className="text-sm font-medium">Zapisany paragon</div>
-                {loadingReceipt ? (
-                    <div className="text-sm text-gray-500">Ładowanie…</div>
-                ) : !existingReceipt ? (
-                    <div className="text-sm text-gray-500">Brak zapisanego paragonu.</div>
-                ) : (
-                    <div className="relative rounded-md border p-1 w-full max-w-xs">
-                        <img
-                            src={existingReceipt.url}
-                            alt="Paragon"
-                            className="h-28 w-full object-cover rounded cursor-zoom-in"
-                            onClick={() => setLightbox({ src: existingReceipt.url, alt: "Paragon" })}
-                            onError={() => setExistingReceipt((prev) => (prev ? { ...prev, url: "" } : prev))}
-                        />
-                        <div className="mt-1 flex items-center justify-between gap-2">
-                            <div className="text-xs text-gray-700 truncate">{existingReceipt.name}</div>
-                            <button
-                                type="button"
-                                className="text-xs underline"
-                                onClick={deleteExistingReceipt}
-                                title="Usuń paragon"
-                            >
-                                Usuń
-                            </button>
-                        </div>
-                        <span className="absolute left-1.5 top-1.5 rounded bg-white/80 px-1.5 py-0.5 text-xs border">
-                            zapisany
-                        </span>
-                    </div>
-                )}
-            </section>
-
-            {/* Podmień / dodaj nowy (jeden plik) */}
-            <section className="space-y-3">
-                <div className="text-sm font-medium">
-                    {existingReceipt ? "Podmień paragon (jeden obraz)" : "Dodaj paragon (jeden obraz)"}
-                </div>
-                <input
-                    type="file"
-                    accept={ACCEPT_ATTR}
-                    onChange={(e) => {
-                        const f = e.target.files?.[0] || null;
-                        if (!f) {
-                            setFile(null);
-                            return;
-                        }
-                        const ext = (f.name.split(".").pop() || "").toLowerCase();
-                        if (!SUPPORTED_EXT.test("." + ext)) {
-                            setToast({ message: "Nieobsługiwany format obrazu.", type: "error" });
-                            setFile(null);
-                            return;
-                        }
-                        setFile(f);
-                    }}
-                    className="w-full rounded-md border px-3 py-2 text-sm"
-                />
-
-                {preview && (
-                    <div className="relative w-full max-w-xs">
-                        <img
-                            src={preview}
-                            alt="Podgląd nowego paragonu"
-                            className="h-28 w-full object-cover rounded-md border cursor-zoom-in"
-                            onClick={() => setLightbox({ src: preview, alt: "Podgląd nowego paragonu" })}
-                        />
-                        <button
-                            type="button"
-                            onClick={() => setFile(null)}
-                            className="absolute -top-2 -right-2 rounded-full bg-white/90 border shadow px-2 py-1 text-xs hover:bg-white"
-                            aria-label="Usuń załącznik"
-                            title="Usuń"
-                        >
-                            ✕
-                        </button>
-                        <div className="mt-1 text-xs text-gray-600 truncate">{file?.name}</div>
-                    </div>
-                )}
-            </section>
+            {/* Wspólny komponent (1 plik, preview + lightbox, kasowanie istniejącego) */}
+            <ReceiptField
+                label={existingReceipt ? "Podmień paragon" : "Dodaj paragon"}
+                existing={
+                    loadingReceipt || !existingReceipt
+                        ? null
+                        : { url: existingReceipt.url, name: existingReceipt.name }
+                }
+                onDeleteExisting={existingReceipt ? deleteExistingReceipt : undefined}
+                file={file}
+                onFileChange={setFile}
+                onError={(msg) => setToast({ message: msg, type: "error" })}
+            />
 
             <div className="flex gap-2">
                 <Button onClick={() => navigate(-1)} variant="ghost">
@@ -382,33 +305,6 @@ export default function EditExpensePage() {
                     {uploading ? "Zapisywanie…" : "💾 Zapisz zmiany"}
                 </Button>
             </div>
-
-            {/* LIGHTBOX overlay (max-width 640px) */}
-            {lightbox && (
-                <div
-                    className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
-                    role="dialog"
-                    aria-modal="true"
-                    onClick={() => setLightbox(null)}
-                >
-                    <div className="relative" onClick={(e) => e.stopPropagation()}>
-                        <img
-                            src={lightbox.src}
-                            alt={lightbox.alt}
-                            className="w-full max-w-[640px] rounded-lg shadow-xl object-contain"
-                        />
-                        <button
-                            type="button"
-                            aria-label="Zamknij"
-                            title="Zamknij"
-                            onClick={() => setLightbox(null)}
-                            className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-white text-black shadow grid place-items-center"
-                        >
-                            ✕
-                        </button>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

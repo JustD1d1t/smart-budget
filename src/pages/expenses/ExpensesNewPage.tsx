@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import ReceiptField from "../../components/receipts/ReceiptField";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import MemberList from "../../components/ui/MemberList";
@@ -9,9 +10,6 @@ import { supabase } from "../../lib/supabaseClient";
 import { Member, useExpensesStore } from "../../stores/expensesStore";
 import { useUserStore } from "../../stores/userStore";
 import { CATEGORIES } from "../../utils/categories";
-
-const SUPPORTED_EXT = /\.(png|jpe?g|webp|gif)$/i;
-const ACCEPT_ATTR = "image/png,image/jpeg,image/jpg,image/webp,image/gif";
 
 export default function ExpensesNewPage() {
     const { user } = useUserStore();
@@ -25,26 +23,15 @@ export default function ExpensesNewPage() {
     const [description, setDescription] = useState("");
     const [sharedWith, setSharedWith] = useState<Member[]>([]);
 
-    // JEDEN plik
+    // jeden plik paragonu – kontrolowany przez stronę
     const [file, setFile] = useState<File | null>(null);
-    const [preview, setPreview] = useState<string | null>(null);
-    const [uploading, setUploading] = useState(false);
 
     const [amountError, setAmountError] = useState("");
     const [storeError, setStoreError] = useState("");
     const [dateError, setDateError] = useState("");
     const [categoryError, setCategoryError] = useState("");
+    const [uploading, setUploading] = useState(false);
     const [toast, setToast] = useState<{ message: string; type?: "error" | "success" } | null>(null);
-
-    useEffect(() => {
-        if (!file) {
-            setPreview(null);
-            return;
-        }
-        const url = URL.createObjectURL(file);
-        setPreview(url);
-        return () => URL.revokeObjectURL(url);
-    }, [file]);
 
     const handleInviteToThisExpense = async (email: string) => {
         const alreadyAdded = sharedWith.some((m) => m.email === email);
@@ -97,7 +84,7 @@ export default function ExpensesNewPage() {
             isValid = false;
         } else setCategoryError("");
 
-        // Limit np. 10 MB na 1 obraz
+        // Limit np. 10 MB na 1 obraz (komponent ReceiptField waliduje rozszerzenia)
         if (file && file.size > 10 * 1024 * 1024) {
             setToast({ message: "Plik paragonu > 10 MB.", type: "error" });
             isValid = false;
@@ -142,28 +129,24 @@ export default function ExpensesNewPage() {
             // 2) jeśli jest plik → upload (jeden)
             if (file) {
                 const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
-                if (!SUPPORTED_EXT.test("." + ext)) {
-                    setToast({ message: "Nieobsługiwany format obrazu.", type: "error" });
+                const name = randomName(ext);
+                const path = `${user.id}/${expenseId}/${name}`;
+
+                const { error: upErr } = await supabase.storage
+                    .from("receipts")
+                    .upload(path, file, {
+                        upsert: false,
+                        contentType: file.type || "image/jpeg",
+                    });
+
+                if (upErr) {
+                    setToast({ message: "Wydatek zapisany, ale nie udało się wgrać paragonu.", type: "error" });
                 } else {
-                    const name = randomName(ext);
-                    const path = `${user.id}/${expenseId}/${name}`;
-
-                    const { error: upErr } = await supabase.storage
-                        .from("receipts")
-                        .upload(path, file, {
-                            upsert: false,
-                            contentType: file.type || "image/jpeg",
-                        });
-
-                    if (upErr) {
-                        setToast({ message: "Wydatek zapisany, ale nie udało się wgrać paragonu.", type: "error" });
-                    } else {
-                        // zapisz ścieżkę w expenses (opcjonalne kolumny)
-                        await supabase
-                            .from("expenses")
-                            .update({ receipt_path: path, receipt_mime: file.type || null })
-                            .eq("id", expenseId);
-                    }
+                    // zapisz ścieżkę w expenses (opcjonalne kolumny)
+                    await supabase
+                        .from("expenses")
+                        .update({ receipt_path: path, receipt_mime: file.type || null })
+                        .eq("id", expenseId);
                 }
             }
 
@@ -198,9 +181,19 @@ export default function ExpensesNewPage() {
                 error={amountError}
             />
 
-            <Input placeholder="Sklep" value={store} onChange={(e) => setStore(e.target.value)} error={storeError} />
+            <Input
+                placeholder="Sklep"
+                value={store}
+                onChange={(e) => setStore(e.target.value)}
+                error={storeError}
+            />
 
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} error={dateError} />
+            <Input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                error={dateError}
+            />
 
             <Select
                 value={category}
@@ -219,44 +212,13 @@ export default function ExpensesNewPage() {
                 rows={3}
             />
 
-            {/* Jeden paragon */}
-            <div className="space-y-2">
-                <label className="text-sm font-medium">Paragon (jeden obraz)</label>
-                <input
-                    type="file"
-                    accept={ACCEPT_ATTR}
-                    onChange={(e) => {
-                        const f = e.target.files?.[0] || null;
-                        if (!f) {
-                            setFile(null);
-                            return;
-                        }
-                        const ext = (f.name.split(".").pop() || "").toLowerCase();
-                        if (!SUPPORTED_EXT.test("." + ext)) {
-                            setToast({ message: "Nieobsługiwany format obrazu.", type: "error" });
-                            setFile(null);
-                            return;
-                        }
-                        setFile(f);
-                    }}
-                    className="w-full rounded-md border px-3 py-2 text-sm"
-                />
-                {preview && (
-                    <div className="relative w-full max-w-xs">
-                        <img src={preview} alt="Podgląd paragonu" className="h-28 w-full object-cover rounded-md border" />
-                        <button
-                            type="button"
-                            onClick={() => setFile(null)}
-                            className="absolute -top-2 -right-2 rounded-full bg-white/90 border shadow px-2 py-1 text-xs hover:bg-white"
-                            aria-label="Usuń załącznik"
-                            title="Usuń"
-                        >
-                            ✕
-                        </button>
-                        <div className="mt-1 text-xs text-gray-600 truncate">{file?.name}</div>
-                    </div>
-                )}
-            </div>
+            <ReceiptField
+                label="Paragon (jeden obraz)"
+                existing={null}
+                file={file}
+                onFileChange={setFile}
+                onError={(msg) => setToast({ message: msg, type: "error" })}
+            />
 
             <Button onClick={handleAdd} disabled={uploading}>
                 {uploading ? "Wysyłanie..." : "➕ Dodaj wydatek"}
