@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ReceiptField from "../../components/receipts/ReceiptField";
 import Button from "../../components/ui/Button";
+import DecimalInput from "../../components/ui/decimalInput";
 import Input from "../../components/ui/Input";
 import MemberList from "../../components/ui/MemberList";
 import Select from "../../components/ui/Select";
@@ -167,7 +168,7 @@ export default function ExpensesNewPage() {
     };
 
     return (
-        <div className="p-4 max-w-2xl mx-auto space-y-4">
+        <div className="max-w-2xl mx-auto space-y-4">
             <h2 className="text-xl font-bold">💸 Nowy wydatek</h2>
 
             {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
@@ -180,13 +181,13 @@ export default function ExpensesNewPage() {
             />
 
             {/* Kwota jako TEKST z inputMode="decimal" (nie zeruje przy ".") */}
-            <Input
-                type="text"
-                inputMode="decimal"
+            <DecimalInput
                 placeholder="Kwota (zł)"
                 value={amountStr}
-                onChange={(e) => setAmountStr(e.target.value)}
-                error={amountError}
+                onValueChange={setAmountStr}
+                className="w-full rounded-md border px-3 py-2 text-sm"
+                aria-invalid={!!amountError}
+                aria-describedby={amountError ? "amount-error" : undefined}
             />
 
             <Input

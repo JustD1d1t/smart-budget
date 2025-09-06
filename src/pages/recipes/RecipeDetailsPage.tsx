@@ -14,6 +14,7 @@ type Recipe = {
     name: string;
     description?: string;
     ingredients: Ingredient[];
+    url?: string | null; // ⬅️ dodane pole
 };
 
 export default function RecipeDetailsPage() {
@@ -50,7 +51,24 @@ export default function RecipeDetailsPage() {
     return (
         <div className="p-4 max-w-2xl mx-auto">
             <h1 className="text-2xl font-bold mb-2">{recipe.name}</h1>
-            {recipe.description && <p className="text-gray-600 mb-4">{recipe.description}</p>}
+
+            {recipe.description && (
+                <p className="text-gray-600 mb-4">{recipe.description}</p>
+            )}
+
+            {recipe.url && (
+                <p className="mb-4">
+                    📎 Źródło:{" "}
+                    <a
+                        href={recipe.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 underline"
+                    >
+                        {recipe.url}
+                    </a>
+                </p>
+            )}
 
             <h2 className="text-lg font-semibold mb-2">🧂 Składniki</h2>
             <ul className="list-disc pl-6 mb-6">

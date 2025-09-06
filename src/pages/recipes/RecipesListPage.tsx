@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Button from "../../components/ui/Button";
 import Card from "../../components/ui/Card";
+import ConfirmModal from "../../components/ui/ConfirmModal";
 import ShoppingListSelectModal from "../../components/ui/ShoppingListSelectModal";
 import Toast from "../../components/ui/Toast";
 import { supabase } from "../../lib/supabaseClient";
@@ -25,6 +26,11 @@ export default function RecipesListPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [toast, setToast] = useState<{ message: string; type?: "error" | "success" } | null>(null);
+
+  // confirm modal
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [recipeToDelete, setRecipeToDelete] = useState<Recipe | null>(null);
+
   const navigate = useNavigate();
   const { user } = useUserStore();
 
@@ -64,7 +70,7 @@ export default function RecipesListPage() {
       quantity: ing.quantity,
       unit: ing.unit,
       bought: false,
-      category: 'żywność',
+      category: "żywność",
       recipe: selectedRecipe.name,
     }));
 
@@ -73,34 +79,44 @@ export default function RecipesListPage() {
     if (error) {
       setToast({ message: "Nie udało się dodać składników do listy.", type: "error" });
     } else {
-      setToast({ message: `Dodano składniki przepisu "${selectedRecipe.name}" do listy.`, type: "success" });
+      setToast({
+        message: `Dodano składniki przepisu "${selectedRecipe.name}" do listy.`,
+        type: "success",
+      });
     }
 
     setModalOpen(false);
     setSelectedRecipe(null);
   };
 
-  const deleteRecipe = async (id: string) => {
-    const { error } = await supabase.from("recipes").delete().eq("id", id);
+  // obsługa usuwania z confirm modal
+  const askDeleteRecipe = (recipe: Recipe) => {
+    setRecipeToDelete(recipe);
+    setConfirmOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!recipeToDelete) return;
+
+    const { error } = await supabase.from("recipes").delete().eq("id", recipeToDelete.id);
 
     if (error) {
       console.error("Błąd podczas usuwania przepisu:", error.message);
       setToast({ message: "Nie udało się usunąć przepisu", type: "error" });
-      return;
+    } else {
+      setRecipes((prev) => prev.filter((r) => r.id !== recipeToDelete.id));
+      setToast({ message: "Przepis usunięty", type: "success" });
     }
 
-    setRecipes((prev) => prev.filter((r) => r.id !== id));
-    setToast({ message: "Przepis usunięty", type: "success" });
+    setRecipeToDelete(null);
+    setConfirmOpen(false);
   };
-
 
   return (
     <>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">📖 Przepisy</h1>
-        <Button onClick={() => navigate("/recipes/new")}>
-          ➕ Dodaj przepis
-        </Button>
+        <Button onClick={() => navigate("/recipes/new")}>➕ Dodaj przepis</Button>
       </div>
 
       <div className="space-y-4">
@@ -115,9 +131,7 @@ export default function RecipesListPage() {
             <div className="flex flex-col justify-between items-start">
               <h2 className="text-xl font-semibold">{recipe.name}</h2>
               {recipe.description && (
-                <p className="text-gray-600 mt-1 line-clamp-2">
-                  {recipe.description}
-                </p>
+                <p className="text-gray-600 mt-1 line-clamp-2">{recipe.description}</p>
               )}
             </div>
 
@@ -125,10 +139,7 @@ export default function RecipesListPage() {
               <Button onClick={() => handleAddToShoppingList(recipe)}>
                 ➕ Dodaj do listy zakupów
               </Button>
-              <Button
-                onClick={() => deleteRecipe(recipe.id)}
-                variant="danger"
-              >
+              <Button onClick={() => askDeleteRecipe(recipe)} variant="danger">
                 🗑️ Usuń
               </Button>
               <Button onClick={() => navigate(`/recipes/${recipe.id}`)}>
@@ -147,12 +158,23 @@ export default function RecipesListPage() {
         />
       )}
 
+      <ConfirmModal
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        title="Potwierdź usunięcie"
+        description={
+          recipeToDelete
+            ? `Czy na pewno chcesz usunąć przepis "${recipeToDelete.name}"?`
+            : undefined
+        }
+        onConfirm={confirmDelete}
+        variant="critical"
+        confirmText="Usuń"
+        cancelText="Anuluj"
+      />
+
       {toast && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast(null)}
-        />
+        <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
       )}
     </>
   );

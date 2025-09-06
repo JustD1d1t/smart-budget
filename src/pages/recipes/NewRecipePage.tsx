@@ -7,6 +7,9 @@ import Textarea from "../../components/ui/Textarea";
 import { supabase } from "../../lib/supabaseClient";
 import { useUserStore } from "../../stores/userStore";
 
+/* 🔧 stała backendUrl – zmieniasz tutaj i działa w całym komponencie */
+const backendUrl = "https://react-budget-backend-c8ced9088264.herokuapp.com"; // np. Twój backend-proxy
+
 type Ingredient = {
   name: string;
   quantity: number;
@@ -19,16 +22,10 @@ type IngredientError = {
   unit?: string;
 };
 
-type Recipe = {
-  id: string;
-  name: string;
-  description: string;
-  ingredients: Ingredient[];
-};
-
 export default function NewRecipePage() {
   const navigate = useNavigate();
   const { user } = useUserStore();
+
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [ingredients, setIngredients] = useState<Ingredient[]>([
@@ -42,6 +39,9 @@ export default function NewRecipePage() {
   }>({
     ingredientFields: [],
   });
+
+  // 🔗 nowy state na link
+  const [recipeLink, setRecipeLink] = useState("");
 
   const handleAddIngredient = () => {
     setIngredients([...ingredients, { name: "", quantity: 1, unit: "" }]);
@@ -120,6 +120,7 @@ export default function NewRecipePage() {
       description: trimmedDescription,
       ingredients: validIngredients,
       user_id: user.id,
+      url: null,
     });
 
     if (error) {
@@ -131,11 +132,110 @@ export default function NewRecipePage() {
     navigate("/recipes");
   };
 
+  /* 🔗 pobieranie przepisu z linka */
+  const fetchContent = async (url: string) => {
+    try {
+      const response = await fetch(`${backendUrl}/html?url=${encodeURIComponent(url)}`);
+      const data = await response.json();
+      return data.html || data; // backend może zwrócić html w polu html lub wprost
+    } catch (error) {
+      console.error("Error fetching content:", error);
+    }
+  };
+
+  const handleAddFromLink = async () => {
+    if (!recipeLink.trim()) {
+      alert("Podaj adres przepisu.");
+      return;
+    }
+
+    const recipeResponse = await fetchContent(recipeLink);
+    if (!recipeResponse) return;
+
+    const el = document.createElement("html");
+    el.innerHTML = recipeResponse.data;
+
+    let parsedName = "";
+    let ingredientsNodes: NodeListOf<Element> | null = null;
+
+    if (recipeLink.includes("przepisy.pl")) {
+      parsedName = el.querySelector(".title")?.textContent || "";
+      ingredientsNodes = el.querySelectorAll(".ingredients-list-content-item");
+    } else if (recipeLink.includes("aniagotuje.pl")) {
+      parsedName = el.querySelector(".article-content h1")?.textContent || "";
+      ingredientsNodes = el.querySelectorAll(".recipe-ing-list li");
+    } else if (recipeLink.includes("kwestiasmaku.com")) {
+      parsedName = el.querySelector("h1.przepis")?.textContent || "";
+      ingredientsNodes = el.querySelectorAll(".field-name-field-skladniki ul li");
+    } else if (recipeLink.includes("kuchnialidla.pl")) {
+      parsedName = el.querySelector(".lead h1")?.textContent || "";
+      ingredientsNodes = el.querySelectorAll(".skladniki ul li");
+    } else if (recipeLink.includes("poprostupycha.com.pl")) {
+      parsedName = el.querySelector("h1.entry-title")?.textContent || "";
+      ingredientsNodes = el.querySelectorAll(".ingredient");
+    } else if (recipeLink.includes("aniastarmach.pl")) {
+      parsedName = el.querySelector("h1.recipe-name")?.textContent || "";
+      ingredientsNodes = el.querySelectorAll(".recipe-what-to-buy ul li");
+    } else if (recipeLink.includes("doradcasmaku.pl")) {
+      parsedName = el.querySelector("h1.grid-in-title")?.textContent || "";
+      ingredientsNodes = el.querySelectorAll(".grid-in-ingredients tbody tr");
+    }
+
+    const parsedIngredients: Ingredient[] = [];
+    ingredientsNodes?.forEach((node) => {
+      parsedIngredients.push({
+        name: node.textContent?.trim() || "",
+        quantity: 1,
+        unit: "",
+      });
+    });
+
+    if (!parsedName || parsedIngredients.length === 0) {
+      alert("Nie udało się odczytać przepisu z tej strony.");
+      return;
+    }
+
+    if (!user?.id) {
+      alert("Musisz być zalogowany, aby zapisać przepis.");
+      return;
+    }
+
+    const { error } = await supabase.from("recipes").insert({
+      id: crypto.randomUUID(),
+      name: parsedName,
+      description: "Przepis dodany z linka, uzupełnij opis.",
+      ingredients: parsedIngredients,
+      user_id: user.id,
+      url: recipeLink,
+    });
+
+    if (error) {
+      console.error("Błąd zapisu przepisu:", error.message);
+      alert("Wystąpił błąd podczas zapisu przepisu.");
+      return;
+    }
+
+    setRecipeLink("");
+    navigate("/recipes");
+  };
+
   return (
     <div className="p-4 max-w-2xl mx-auto">
       <h1 className="text-2xl font-bold mb-4">➕ Nowy przepis</h1>
 
       <div className="space-y-4">
+        {/* 🔗 input na link */}
+        <Input
+          placeholder="Adres strony z przepisem"
+          value={recipeLink}
+          onChange={(e) => setRecipeLink(e.target.value)}
+        />
+        <Button onClick={handleAddFromLink} className="w-full">
+          🌐 Dodaj przepis z linka
+        </Button>
+
+        <hr className="my-6" />
+
         <Input
           placeholder="Nazwa przepisu"
           value={name}
@@ -167,7 +267,7 @@ export default function NewRecipePage() {
         </Button>
 
         <Button onClick={handleSubmit} className="mt-4">
-          ✅ Zapisz przepis
+          ✅ Zapisz własny przepis
         </Button>
       </div>
     </div>
