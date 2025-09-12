@@ -31,6 +31,16 @@ type Props = {
     sortOption?: SortOption;
     onSortOptionChange?: (v: SortOption) => void;
 
+    // NOWE: Szukanie po sklepie/opisie (1 input) – wymagane
+    searchText: string;
+    onSearchTextChange: (v: string) => void;
+
+    // NOWE: Filtr kwoty (od/do) – wymagane
+    amountMin: string; // trzymaj jako string, żeby nie gubić przecinka/kropki
+    amountMax: string;
+    onAmountMinChange: (v: string) => void;
+    onAmountMaxChange: (v: string) => void;
+
     // UI
     defaultOpen?: boolean; // domyślnie false (zwinięty)
 };
@@ -93,6 +103,14 @@ export default function ExpenseFilters({
     sortOption,
     onSortOptionChange,
 
+    // NEW
+    searchText,
+    onSearchTextChange,
+    amountMin,
+    amountMax,
+    onAmountMinChange,
+    onAmountMaxChange,
+
     defaultOpen = false,
 }: Props) {
     const [open, setOpen] = useState(defaultOpen);
@@ -112,6 +130,12 @@ export default function ExpenseFilters({
         parts.push(`do ${endDate || "—"}`);
         parts.push(`kategorie: ${catSummary}`);
         parts.push(`typ: ${collabLabel(collabFilter)}`);
+        if (searchText?.trim()) parts.push(`szukaj: “${searchText.trim()}”`);
+        if (amountMin || amountMax) {
+            const from = amountMin || "—";
+            const to = amountMax || "—";
+            parts.push(`kwota: ${from}–${to}`);
+        }
         if (sortOption && onSortOptionChange) parts.push(`sort: ${sortLabel(sortOption)}`);
         return parts.join(" • ");
     }, [
@@ -122,6 +146,9 @@ export default function ExpenseFilters({
         sortOption,
         onSortOptionChange,
         collabFilter,
+        searchText,
+        amountMin,
+        amountMax,
     ]);
 
     const allSelected =
@@ -191,6 +218,18 @@ export default function ExpenseFilters({
                             />
                         </label>
 
+                        {/* Szukaj: nazwa sklepu / opis (1 input) */}
+                        <label className="flex flex-col gap-1 md:col-span-2">
+                            <span className="text-sm font-medium">Szukaj (sklep lub opis)</span>
+                            <input
+                                type="text"
+                                value={searchText}
+                                onChange={(e) => onSearchTextChange(e.target.value)}
+                                placeholder="np. Biedronka, pomidory, rachunek..."
+                                className="rounded-md border px-3 py-2"
+                            />
+                        </label>
+
                         {/* Kategorie (multi) */}
                         <label className="flex flex-col gap-1 md:col-span-2">
                             <span className="text-sm font-medium">Kategorie</span>
@@ -227,42 +266,67 @@ export default function ExpenseFilters({
                             </div>
                         </label>
 
-                        {/* Typ wydatków (współtwórcy) */}
-                        <label className="flex flex-col gap-1 md:col-span-1">
-                            <span className="text-sm font-medium">Typ wydatków</span>
-                            <select
-                                value={collabFilter}
-                                onChange={(e) =>
-                                    onCollabFilterChange(e.target.value as CollaborationFilter)
-                                }
-                                className="rounded-md border px-3 py-2"
-                            >
-                                <option value="all">Wszystkie</option>
-                                <option value="own">Własne (bez współtwórców)</option>
-                                <option value="with_collaborators">Ze współtwórcami</option>
-                            </select>
-                        </label>
-
-                        {/* Sort (opcjonalnie) */}
-                        {sortOption && onSortOptionChange && (
-                            <label className="flex flex-col gap-1 md:col-span-1">
-                                <span className="text-sm font-medium">Sortowanie</span>
+                        {/* Typ wydatków + Sortowanie razem */}
+                        <div className="flex flex-col gap-4 md:col-span-1">
+                            {/* Typ wydatków (współtwórcy) */}
+                            <label className="flex flex-col gap-1">
+                                <span className="text-sm font-medium">Typ wydatków</span>
                                 <select
-                                    value={sortOption}
+                                    value={collabFilter}
                                     onChange={(e) =>
-                                        onSortOptionChange(e.target.value as SortOption)
+                                        onCollabFilterChange(e.target.value as CollaborationFilter)
                                     }
                                     className="rounded-md border px-3 py-2"
                                 >
-                                    <option value="date_desc">Data ↓ (najnowsze)</option>
-                                    <option value="date_asc">Data ↑ (najstarsze)</option>
-                                    <option value="amount_desc">Kwota ↓</option>
-                                    <option value="amount_asc">Kwota ↑</option>
-                                    <option value="category_asc">Kategoria A→Z</option>
-                                    <option value="category_desc">Kategoria Z→A</option>
+                                    <option value="all">Wszystkie</option>
+                                    <option value="own">Własne (bez współtwórców)</option>
+                                    <option value="with_collaborators">Ze współtwórcami</option>
                                 </select>
                             </label>
-                        )}
+
+                            {/* Sortowanie */}
+                            {sortOption && onSortOptionChange && (
+                                <label className="flex flex-col gap-1">
+                                    <span className="text-sm font-medium">Sortowanie</span>
+                                    <select
+                                        value={sortOption}
+                                        onChange={(e) => onSortOptionChange(e.target.value as SortOption)}
+                                        className="rounded-md border px-3 py-2"
+                                    >
+                                        <option value="date_desc">Data ↓ (najnowsze)</option>
+                                        <option value="date_asc">Data ↑ (najstarsze)</option>
+                                        <option value="amount_desc">Kwota ↓</option>
+                                        <option value="amount_asc">Kwota ↑</option>
+                                        <option value="category_asc">Kategoria A→Z</option>
+                                        <option value="category_desc">Kategoria Z→A</option>
+                                    </select>
+                                </label>
+                            )}
+                        </div>
+
+
+                        {/* Kwota od / do */}
+                        <div className="md:col-span-1">
+                            <span className="mb-1 block text-sm font-medium">Kwota (PLN)</span>
+                            <div className="grid grid-cols-2 gap-2">
+                                <input
+                                    type="text"
+                                    inputMode="decimal"
+                                    placeholder="od"
+                                    value={amountMin}
+                                    onChange={(e) => onAmountMinChange(e.target.value)}
+                                    className="rounded-md border px-3 py-2"
+                                />
+                                <input
+                                    type="text"
+                                    inputMode="decimal"
+                                    placeholder="do"
+                                    value={amountMax}
+                                    onChange={(e) => onAmountMaxChange(e.target.value)}
+                                    className="rounded-md border px-3 py-2"
+                                />
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
