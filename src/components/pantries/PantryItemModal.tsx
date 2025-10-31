@@ -1,16 +1,16 @@
 import { PantryItem } from "../../types";
-import { CATEGORIES } from "../../utils/categories";
+import { PANTRY_ITEMS_CATEGORIES } from "../../utils/categories";
 import Button from "../ui/Button";
 import Input from "../ui/Input";
 import Modal from "../ui/Modal";
 import Select from "../ui/Select";
 
 type Props = {
-    item: PantryItem;                          // edytowany obiekt (trzymany w stanie rodzica)
-    onChange: (item: PantryItem) => void;      // aktualizacja stanu rodzica (kontrolowany formularz)
-    onSave: () => void;                         // zapisz (np. updatePantryItem(editingItem))
-    onClose: () => void;                        // zamknij
-    onQuantityChange: (id: string, newQty: number) => void | Promise<void>; // natychmiastowa zmiana ilości (opcjonalnie persist)
+    item: PantryItem;
+    onChange: (item: PantryItem) => void;
+    onSave: () => void;
+    onClose: () => void;
+    onQuantityChange: (id: string, newQty: number) => void | Promise<void>;
     onDelete: (id: string) => void | Promise<void>;
 };
 
@@ -76,7 +76,7 @@ export default function PantryItemModal({
                     <Select
                         value={item.category}
                         onChange={(e) => onChange({ ...item, category: e.target.value })}
-                        options={CATEGORIES}
+                        options={PANTRY_ITEMS_CATEGORIES}
                         placeholder="Kategoria"
                         aria-label="Kategoria"
                     />

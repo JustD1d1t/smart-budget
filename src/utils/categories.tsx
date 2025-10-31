@@ -20,4 +20,12 @@ export const CATEGORIES = [
     "inne",
 ] as const;
 
+export const PANTRY_ITEMS_CATEGORIES = [
+    "żywność",
+    "napoje",
+    "chemia",
+    "kosmetyki",
+    "inne",
+] as const;
+
 export type Category = typeof CATEGORIES[number];

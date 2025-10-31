@@ -1,24 +1,39 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
+import { PANTRY_ITEMS_CATEGORIES } from "../../utils/categories";
+import Select from "../ui/Select";
 
 interface AddPantryItemFormProps {
     pantryId: string;
-    onItemAdded: (item: any) => void;
+    onItemAdded: (item: any) => void | Promise<void>;
 }
+
+const UNITS = ["szt", "kg"];
 
 export default function AddPantryItemForm({ pantryId, onItemAdded }: AddPantryItemFormProps) {
     const [name, setName] = useState("");
-    const [category, setCategory] = useState("");
+    const [category, setCategory] = useState("żywność");
     const [quantity, setQuantity] = useState(1);
-    const [unit, setUnit] = useState("szt"); // ✅ domyślnie "szt"
+    const [unit, setUnit] = useState("szt");
     const [expiryDate, setExpiryDate] = useState("");
+
+    const canSubmit = useMemo(() => {
+        const validQty = Number.isFinite(quantity) && quantity > 0;
+        return (
+            name.trim().length > 0 &&
+            category.trim().length > 0 &&
+            unit.trim().length > 0 &&
+            validQty
+        );
+    }, [name, category, unit, quantity]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!canSubmit) return;
 
         const newItem = {
-            name,
+            name: name.trim(),
             category,
-            quantity,
+            quantity: Number(quantity),
             unit,
             expiry_date: expiryDate || null,
             pantry_id: pantryId,
@@ -26,9 +41,9 @@ export default function AddPantryItemForm({ pantryId, onItemAdded }: AddPantryIt
 
         await onItemAdded(newItem);
 
-        // reset formularza
+        // reset formularza (z zachowaniem domyślnej kategorii)
         setName("");
-        setCategory("");
+        setCategory("Żywność");
         setQuantity(1);
         setUnit("szt");
         setExpiryDate("");
@@ -36,6 +51,7 @@ export default function AddPantryItemForm({ pantryId, onItemAdded }: AddPantryIt
 
     return (
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+            {/* Nazwa */}
             <input
                 type="text"
                 placeholder="Nazwa produktu"
@@ -45,33 +61,34 @@ export default function AddPantryItemForm({ pantryId, onItemAdded }: AddPantryIt
                 required
             />
 
-            <input
-                type="text"
-                placeholder="Kategoria"
+            {/* Kategoria (Select) */}
+            <Select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="border rounded p-2"
+                options={PANTRY_ITEMS_CATEGORIES}
+                placeholder="Kategoria"
             />
 
+            {/* Ilość + Jednostka */}
             <div className="flex gap-2">
                 <input
                     type="number"
                     placeholder="Ilość"
                     value={quantity}
-                    onChange={(e) => setQuantity(Number(e.target.value))}
+                    onChange={(e) => setQuantity(Math.max(0, Number(e.target.value)))}
                     className="border rounded p-2 w-1/2"
                     min={0}
+                    required
                 />
-                <input
-                    type="text"
-                    placeholder="Jednostka"
+                <Select
                     value={unit}
                     onChange={(e) => setUnit(e.target.value)}
-                    className="border rounded p-2 w-1/2"
+                    options={UNITS}
+                    placeholder="Jednostka"
                 />
             </div>
 
-            {/* 🔹 Pole daty + przycisk czyszczenia */}
+            {/* Data przydatności + czyść */}
             <div className="flex items-center gap-2">
                 <input
                     type="date"
@@ -94,7 +111,11 @@ export default function AddPantryItemForm({ pantryId, onItemAdded }: AddPantryIt
 
             <button
                 type="submit"
-                className="bg-blue-600 text-white rounded p-2 hover:bg-blue-700 transition"
+                disabled={!canSubmit}
+                className={`rounded p-2 transition text-white ${canSubmit
+                        ? "bg-blue-600 hover:bg-blue-700"
+                        : "bg-blue-300 cursor-not-allowed"
+                    }`}
             >
                 Dodaj produkt
             </button>
