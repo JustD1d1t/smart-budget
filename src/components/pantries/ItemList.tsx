@@ -1,4 +1,6 @@
+import { useState } from "react";
 import Button from "../ui/Button";
+import PantryItemModal from "./PantryItemModal";
 
 type Item = {
   id: string;
@@ -17,77 +19,129 @@ type Props = {
 };
 
 export default function ItemList({ items, onEdit, onDelete, onQuantityChange }: Props) {
+  const [activeItem, setActiveItem] = useState<Item | null>(null);
+
+  const openActions = (item: Item) => setActiveItem(item);
+  const closeActions = () => setActiveItem(null);
+
+  const isExpired = (d?: string | null) => {
+    if (!d) return false;
+    const date = new Date(d);
+    if (isNaN(date.getTime())) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return date < today;
+  };
+
   return (
-    <ul className="divide-y">
-      {/* Nagłówek – widoczny zawsze, równo rozłożony */}
-      <li
-        className="
-          grid grid-cols-3 gap-2 font-semibold text-sm text-left pb-2
-          sm:grid-cols-6
-        "
-      >
-        <span>Produkt</span>
-        <span>Kategoria</span>
-        <span className="text-center">Ilość</span>
-        <span className="hidden sm:block sm:col-span-3"></span>
-      </li>
-      {items.map((item) => (
-        <li
-          key={item.id}
-          className="
-            grid grid-cols-3 gap-2 py-3
-            sm:grid-cols-6 sm:items-center sm:text-left
-            text-sm
-          "
-        >
-          {/* Produkt */}
-          <div className="min-w-0 flex flex-col">
-            <span>{item.name}</span>
-            {item.expiry_date && (
-              <p className="text-xs text-gray-400">Do: {item.expiry_date}</p>
-            )}
-          </div>
-          {/* Kategoria */}
-          <span className="text-gray-500 italic min-w-0">{item.category}</span>
-          {/* Ilość + +/- (wyśrodkowane!) */}
-          <div className="flex items-center justify-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onQuantityChange(item.id, Math.max(0, item.quantity - 1))}
-            >
-              ➖
-            </Button>
-            <span className="text-gray-700">
-              {item.quantity} {item.unit}
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onQuantityChange(item.id, item.quantity + 1)}
-            >
-              ➕
-            </Button>
-          </div>
-          {/* Przyciski Edytuj/Usuń – nowy wiersz, równa szerokość na mobile */}
-          <div className="col-span-3 grid grid-cols-2 gap-2 mt-2 sm:col-span-3 sm:flex sm:justify-end sm:mt-0">
-            <Button
-              variant="ghost"
-              className="w-full"
-              onClick={() => onEdit(item)}
-            >
-              ✏️ Edytuj
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full"
-              onClick={() => onDelete(item.id)}
-            >
-              🗑 Usuń
-            </Button>
-          </div>
-        </li>
-      ))}
-    </ul>
+    <>
+      <ul className="divide-y">
+        {items.map((item) => (
+          <li
+            key={item.id}
+            className="flex items-center gap-3 py-2 text-sm"
+          >
+            {/* Lewa kolumna: nazwa + metadane w jednej linii */}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="font-medium truncate">{item.name}</span>
+                {/* Chip kategorii */}
+                <span className="shrink-0 rounded-full px-2 py-0.5 text-xs bg-gray-100 text-gray-600">
+                  {item.category}
+                </span>
+                {/* Termin (koloruje, gdy po terminie) */}
+                {item.expiry_date && (
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-xs ${isExpired(item.expiry_date)
+                      ? "bg-red-100 text-red-700"
+                      : "bg-emerald-100 text-emerald-700"
+                      }`}
+                    title="Data ważności"
+                  >
+                    do: {item.expiry_date}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Środek: kompaktowy stepper */}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label="Zmniejsz"
+                onClick={() => onQuantityChange(item.id, Math.max(0, item.quantity - 1))}
+              >
+                −
+              </Button>
+              <span className="tabular-nums">
+                {item.quantity} {item.unit}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label="Zwiększ"
+                onClick={() => onQuantityChange(item.id, item.quantity + 1)}
+              >
+                +
+              </Button>
+            </div>
+
+            {/* Prawa: akcje – na desktopie ikonki; na mobile menu ⋯ */}
+            <div className="flex items-center gap-1">
+              <div className="hidden sm:flex gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label="Edytuj"
+                  onClick={() => onEdit(item)}
+                  title="Edytuj"
+                >
+                  ✏️
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label="Usuń"
+                  onClick={() => onDelete(item.id)}
+                  title="Usuń"
+                >
+                  🗑
+                </Button>
+              </div>
+              <div className="sm:hidden">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label="Więcej"
+                  onClick={() => openActions(item)}
+                >
+                  ⋯
+                </Button>
+              </div>
+            </div>
+          </li>
+        ))}
+      </ul>
+
+      {/* Modal akcji dla mobile (i jako fallback) */}
+      {activeItem && (
+        <PantryItemModal
+          view="actions"
+          item={activeItem}
+          onChange={(updated) => setActiveItem(updated)}
+          onSave={() => {
+            onEdit(activeItem);
+            closeActions();
+          }}
+          onClose={closeActions}
+          onQuantityChange={onQuantityChange}
+          onDelete={(id) => {
+            onDelete(id);
+            closeActions();
+          }}
+        />
+      )}
+    </>
   );
 }
