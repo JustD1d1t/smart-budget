@@ -27,12 +27,13 @@ export default function PantryItemModal({
     const dec = () => {
         const newQty = Math.max(0, (item.quantity ?? 0) - 1);
         onChange({ ...item, quantity: newQty });
-        onQuantityChange(item.id, newQty); // natychmiastowy persist stepera
+        onQuantityChange(item.id, newQty);
     };
+
     const inc = () => {
         const newQty = (item.quantity ?? 0) + 1;
         onChange({ ...item, quantity: newQty });
-        onQuantityChange(item.id, newQty); // natychmiastowy persist stepera
+        onQuantityChange(item.id, newQty);
     };
 
     const canSubmit =
@@ -45,7 +46,7 @@ export default function PantryItemModal({
     return (
         <Modal onClose={onClose}>
             <div className="space-y-4 bg-white max-w-md mx-auto">
-                {/* Nagłówek + szybkie akcje *w tym samym widoku* */}
+                {/* Nagłówek */}
                 <div className="space-y-1">
                     <h2 className="text-lg font-bold">{item.name || "Produkt"}</h2>
                     <p className="text-xs text-gray-500">
@@ -54,25 +55,30 @@ export default function PantryItemModal({
                     </p>
                 </div>
 
-                {/* Szybkie +/- ilości (od razu uaktualnia back i formularz) */}
+                {/* Szybkie +/- ilości */}
                 <div className="flex items-center justify-between rounded-lg border p-2">
                     <span className="text-sm">Ilość</span>
                     <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="sm" onClick={dec}>−</Button>
+                        <Button variant="ghost" size="sm" onClick={dec}>
+                            −
+                        </Button>
                         <span className="text-sm tabular-nums">
                             {item.quantity} {item.unit}
                         </span>
-                        <Button variant="ghost" size="sm" onClick={inc}>+</Button>
+                        <Button variant="ghost" size="sm" onClick={inc}>
+                            +
+                        </Button>
                     </div>
                 </div>
 
-                {/* Formularz edycji – widoczny cały czas */}
+                {/* Formularz edycji */}
                 <div className="space-y-2">
                     <Input
                         value={item.name}
                         onChange={(e) => onChange({ ...item, name: e.target.value })}
                         placeholder="Nazwa produktu"
                     />
+
                     <Select
                         value={item.category}
                         onChange={(e) => onChange({ ...item, category: e.target.value })}
@@ -80,6 +86,8 @@ export default function PantryItemModal({
                         placeholder="Kategoria"
                         aria-label="Kategoria"
                     />
+
+                    {/* Ilość + jednostka obok siebie (po pół) */}
                     <div className="flex gap-2">
                         <Input
                             type="number"
@@ -91,21 +99,41 @@ export default function PantryItemModal({
                             min={0}
                             step={1}
                         />
-                        <Select
-                            value={item.unit}
-                            onChange={(e) => onChange({ ...item, unit: e.target.value })}
-                            options={UNITS}
-                            placeholder="Jednostka"
-                            aria-label="Jednostka"
-                        />
+                        <div className="w-1/2">
+                            <Select
+                                value={item.unit}
+                                onChange={(e) => onChange({ ...item, unit: e.target.value })}
+                                options={UNITS}
+                                placeholder="Jednostka"
+                                aria-label="Jednostka"
+                            // 🔹 Rozciągamy select do pełnej szerokości połowy kontenera
+                            // (Select już ma w sobie wrapper <div className="relative">)
+                            />
+                        </div>
                     </div>
-                    <Input
-                        type="date"
-                        value={item.expiry_date || ""}
-                        onChange={(e) =>
-                            onChange({ ...item, expiry_date: e.target.value || null })
-                        }
-                    />
+
+                    {/* Data przydatności + przycisk czyszczenia */}
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="date"
+                            placeholder="Data przydatności"
+                            value={item.expiry_date || ""}
+                            onChange={(e) =>
+                                onChange({ ...item, expiry_date: e.target.value || null })
+                            }
+                            className="border rounded p-2 flex-1"
+                        />
+                        {item.expiry_date && (
+                            <button
+                                type="button"
+                                onClick={() => onChange({ ...item, expiry_date: null })}
+                                className="px-2 py-1 text-gray-500 hover:text-black border rounded"
+                                aria-label="Wyczyść datę"
+                            >
+                                ✕
+                            </button>
+                        )}
+                    </div>
                 </div>
 
                 {/* Akcje dolne */}

@@ -41,27 +41,19 @@ export default function ItemList({ items, onEdit, onDelete, onQuantityChange }: 
             key={item.id}
             className="flex items-center gap-3 py-2 text-sm"
           >
-            {/* Lewa kolumna: nazwa + metadane w jednej linii */}
+            {/* Lewa kolumna: nazwa + data ważności pod spodem */}
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <span className="font-medium truncate">{item.name}</span>
-                {/* Chip kategorii */}
-                <span className="shrink-0 rounded-full px-2 py-0.5 text-xs bg-gray-100 text-gray-600">
-                  {item.category}
+              <span className="font-medium truncate block">{item.name}</span>
+              {item.expiry_date && (
+                <span
+                  className={`text-xs mt-0.5 block ${isExpired(item.expiry_date)
+                      ? "text-red-600"
+                      : "text-gray-500"
+                    }`}
+                >
+                  do: {item.expiry_date}
                 </span>
-                {/* Termin (koloruje, gdy po terminie) */}
-                {item.expiry_date && (
-                  <span
-                    className={`shrink-0 rounded-full px-2 py-0.5 text-xs ${isExpired(item.expiry_date)
-                      ? "bg-red-100 text-red-700"
-                      : "bg-emerald-100 text-emerald-700"
-                      }`}
-                    title="Data ważności"
-                  >
-                    do: {item.expiry_date}
-                  </span>
-                )}
-              </div>
+              )}
             </div>
 
             {/* Środek: kompaktowy stepper */}
@@ -87,7 +79,7 @@ export default function ItemList({ items, onEdit, onDelete, onQuantityChange }: 
               </Button>
             </div>
 
-            {/* Prawa: akcje – na desktopie ikonki; na mobile menu ⋯ */}
+            {/* Prawa: akcje */}
             <div className="flex items-center gap-1">
               <div className="hidden sm:flex gap-1">
                 <Button
@@ -124,7 +116,7 @@ export default function ItemList({ items, onEdit, onDelete, onQuantityChange }: 
         ))}
       </ul>
 
-      {/* Modal akcji dla mobile (i jako fallback) */}
+      {/* Modal akcji dla mobile */}
       {activeItem && (
         <PantryItemModal
           view="actions"
