@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { supabase } from "../lib/supabaseClient";
 
+/* ================== TYPES ================== */
+
 export interface Pantry {
   id: string;
   name: string;
@@ -15,6 +17,7 @@ export interface PantryItem {
   quantity: number;
   unit: string;
   expiry_date?: string | null;
+  ean?: string | null; // opcjonalnie, jeśli używasz EAN
 }
 
 export interface Member {
@@ -30,23 +33,39 @@ interface PantriesStore {
   selectedPantry: Pantry | null;
   isOwner: boolean;
   loading: boolean;
+
   fetchPantries: () => Promise<void>;
   fetchPantryDetails: (pantryId: string) => Promise<void>;
   fetchPantryItems: (pantryId: string) => Promise<void>;
   fetchPantryMembers: (pantryId: string) => Promise<void>;
+
   addPantry: (name: string) => Promise<{ success: boolean; error?: string }>;
   removePantry: (id: string) => Promise<void>;
   renamePantry: (id: string, newName: string) => Promise<void>;
+
+  /** UP S E R T — klucz do braku duplikatów */
+  upsertPantryItem: (item: PantryItem) => void;
+
+  /** Legacy API – zostawiam, ale w środku używa upsert */
   addPantryItem: (item: PantryItem) => void;
-  updatePantryItem: (item: PantryItem) => void;
+
+  /** Zapis pełnego obiektu item do bazy + upsert do store */
+  updatePantryItem: (item: PantryItem) => Promise<void>;
+
+  /** Skasuj w bazie + usuń ze store */
   deletePantryItem: (id: string) => Promise<void>;
+
+  /** Update tylko quantity (w bazie) + upsert do store */
   updateItemQuantity: (id: string, quantity: number) => Promise<void>;
+
   inviteMember: (
     pantryId: string,
     email: string
   ) => Promise<{ success: boolean; message: string }>;
   removeMember: (memberId: string) => Promise<void>;
 }
+
+/* ================== STORE ================== */
 
 export const usePantriesStore = create<PantriesStore>((set, get) => ({
   pantries: [],
@@ -56,13 +75,17 @@ export const usePantriesStore = create<PantriesStore>((set, get) => ({
   isOwner: false,
   loading: false,
 
+  /* -------- PANTRIES (LISTA / DANE) -------- */
+
   fetchPantries: async () => {
     set({ loading: true });
 
     const { data: userData } = await supabase.auth.getUser();
     const userId = userData.user?.id;
-
-    if (!userId) return;
+    if (!userId) {
+      set({ loading: false });
+      return;
+    }
 
     const { data: viewerLinks } = await supabase
       .from("pantry_members")
@@ -78,7 +101,7 @@ export const usePantriesStore = create<PantriesStore>((set, get) => ({
 
     const { data: sharedPantries } = sharedIds.length
       ? await supabase.from("pantries").select("*").in("id", sharedIds)
-      : { data: [] };
+      : { data: [] as Pantry[] };
 
     const combined = [...(ownedPantries || []), ...(sharedPantries || [])];
     const withOwnership = combined.map((p) => ({
@@ -91,7 +114,7 @@ export const usePantriesStore = create<PantriesStore>((set, get) => ({
 
   fetchPantryDetails: async (id) => {
     const { data: userData } = await supabase.auth.getUser();
-    const userId = userData.user?.id;
+    const userId = userData.user?.id || null;
 
     const { data } = await supabase
       .from("pantries")
@@ -102,7 +125,7 @@ export const usePantriesStore = create<PantriesStore>((set, get) => ({
     if (data) {
       set({
         selectedPantry: data,
-        isOwner: data.owner_id === userId,
+        isOwner: userId ? data.owner_id === userId : false,
       });
     }
   },
@@ -115,7 +138,7 @@ export const usePantriesStore = create<PantriesStore>((set, get) => ({
       .eq("pantry_id", id);
 
     if (data) {
-      set({ pantryItems: data });
+      set({ pantryItems: data as PantryItem[] });
     }
     set({ loading: false });
   },
@@ -127,7 +150,7 @@ export const usePantriesStore = create<PantriesStore>((set, get) => ({
       .eq("pantry_id", id);
 
     if (data) {
-      set({ pantryMembers: data });
+      set({ pantryMembers: data as Member[] });
     }
   },
 
@@ -162,18 +185,53 @@ export const usePantriesStore = create<PantriesStore>((set, get) => ({
 
   renamePantry: async (id, newName) => {
     await supabase.from("pantries").update({ name: newName }).eq("id", id);
-  },
-
-  addPantryItem: (item) => {
-    set((state) => ({ pantryItems: [...state.pantryItems, item] }));
-  },
-
-  updatePantryItem: (item) => {
+    // opcjonalnie: odśwież listę / lokalnie podmień nazwę
     set((state) => ({
-      pantryItems: state.pantryItems.map((i) => (i.id === item.id ? item : i)),
+      pantries: state.pantries.map((p) =>
+        p.id === id ? { ...p, name: newName } : p
+      ),
     }));
   },
 
+  /* -------- ITEMS (UP S E R T / CRUD) -------- */
+
+  /** Klucz do braku duplikatów — zawsze podmieniaj po id */
+  upsertPantryItem: (item) =>
+    set((state) => {
+      const idx = state.pantryItems.findIndex((i) => i.id === item.id);
+      if (idx === -1) {
+        return { pantryItems: [...state.pantryItems, item] };
+      }
+      const next = state.pantryItems.slice();
+      next[idx] = item;
+      return { pantryItems: next };
+    }),
+
+  /** Legacy alias, żeby nic Ci się nie wywaliło w dotychczasowych wywołaniach */
+  addPantryItem: (item) => {
+    get().upsertPantryItem(item);
+  },
+
+  /** Pełny update rekordu (np. po edycji w modalu) – zapis w DB + upsert wyniku */
+  updatePantryItem: async (item) => {
+    const { id, ...rest } = item;
+    const { data, error } = await supabase
+      .from("pantry_items")
+      .update(rest)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("updatePantryItem error:", error.message);
+      return;
+    }
+    if (data) {
+      get().upsertPantryItem(data as PantryItem);
+    }
+  },
+
+  /** Usuwanie itemu (DB + local) */
   deletePantryItem: async (id) => {
     const { error } = await supabase.from("pantry_items").delete().eq("id", id);
     if (!error) {
@@ -183,19 +241,25 @@ export const usePantriesStore = create<PantriesStore>((set, get) => ({
     }
   },
 
+  /** Update tylko ilości — zapis w DB i upsert zwróconego rekordu */
   updateItemQuantity: async (id, quantity) => {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("pantry_items")
       .update({ quantity })
-      .eq("id", id);
-    if (!error) {
-      set((state) => ({
-        pantryItems: state.pantryItems.map((i) =>
-          i.id === id ? { ...i, quantity } : i
-        ),
-      }));
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("updateItemQuantity error:", error.message);
+      return;
+    }
+    if (data) {
+      get().upsertPantryItem(data as PantryItem);
     }
   },
+
+  /* -------- MEMBERS -------- */
 
   inviteMember: async (pantryId, email) => {
     const { data: users } = await supabase
@@ -206,7 +270,6 @@ export const usePantriesStore = create<PantriesStore>((set, get) => ({
     if (!users || users.length === 0) {
       return { success: false, message: "Nie znaleziono użytkownika." };
     }
-
     const user = users[0];
 
     const { data: existing } = await supabase

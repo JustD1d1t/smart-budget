@@ -30,7 +30,7 @@ export default function PantryDetailsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [search, setSearch] = useState("");
 
-  // Modal: produkt wyzerowany / usuwany → pytanie o dodanie do listy zakupowej
+  // Modal: wyzerowany / usuwany → pytanie o dodanie do listy zakupowej
   const [depletedItem, setDepletedItem] = useState<any | null>(null);
   const [shoppingLists, setShoppingLists] = useState<Array<{ id: string; name: string }>>([]);
   const [selectedListId, setSelectedListId] = useState<string>("");
@@ -50,7 +50,7 @@ export default function PantryDetailsPage() {
     updateItemQuantity,
     inviteMember,
     removeMember,
-    addPantryItem,
+    upsertPantryItem, // KLUCZ – wpinamy wynik z Supabase, bez duplikatów
   } = usePantriesStore();
 
   useEffect(() => {
@@ -63,7 +63,7 @@ export default function PantryDetailsPage() {
 
   const handleSaveEdit = async () => {
     if (!editingItem) return;
-    await updatePantryItem(editingItem);
+    await updatePantryItem(editingItem); // store zrobi SELECT+UPSERT
     setEditingItem(null);
   };
 
@@ -148,17 +148,24 @@ export default function PantryDetailsPage() {
     try {
       if (selectedListId && parseFloat(shoppingQuantity) > 0) {
         const qty = parseFloat(shoppingQuantity);
-        const { error: addErr } = await supabase.from("shopping_items").insert({
-          list_id: selectedListId, // zmień jeśli masz inną nazwę kolumny
-          name: depletedItem.name,
-          quantity: qty,
-          unit: depletedItem.unit ?? "szt",
-          category: depletedItem.category ?? null,
-        });
+        const { error: addErr, data: added } = await supabase
+          .from("shopping_items")
+          .insert({
+            list_id: selectedListId,
+            name: depletedItem.name,
+            quantity: qty,
+            unit: depletedItem.unit ?? "szt",
+            category: depletedItem.category ?? null,
+          })
+          .select()
+          .single();
+
         if (addErr) {
           console.error("Błąd dodawania do shopping_items:", addErr.message);
           setToast({ message: "Nie udało się dodać do listy zakupowej.", type: "error" });
           // mimo błędu i tak usuwamy ze spiżarni wg wymagań
+        } else if (added) {
+          // opcjonalnie: możesz tu zawołać upsert do store list zakupowych, jeśli masz
         }
       }
 
@@ -174,24 +181,11 @@ export default function PantryDetailsPage() {
       console.error(e);
       setToast({ message: "Wystąpił błąd przy przenoszeniu/usuwaniu.", type: "error" });
     } finally {
-      closeDepletedModal();
+      setDepletedItem(null);
+      setSelectedListId("");
+      setShoppingQuantity("1");
     }
   };
-
-  // Zamknięcie modala bez akcji
-  const closeDepletedModal = () => {
-    setDepletedItem(null);
-    setSelectedListId("");
-    setShoppingQuantity("1");
-  };
-
-  // Etykieta i stan JEDYNEGO przycisku
-  const primaryLabel = selectedListId
-    ? "Usuń i dodaj do listy zakupowej"
-    : "Usuń";
-
-  const confirmDisabled =
-    !!selectedListId && !(shoppingQuantity && parseFloat(shoppingQuantity) > 0);
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -265,7 +259,7 @@ export default function PantryDetailsPage() {
           pantryId={id!}
           onClose={() => setShowAddModal(false)}
           onItemAdded={(item) => {
-            addPantryItem(item);
+            upsertPantryItem(item); // WAŻNE: upsert, nie dopinanie
             setToast({ message: "Dodano produkt.", type: "success" });
           }}
         />
@@ -287,7 +281,7 @@ export default function PantryDetailsPage() {
         />
       )}
 
-      {/* 🔹 Jeden modal: akcje + edycja w jednym widoku */}
+      {/* 🔹 Jeden modal: edycja */}
       {editingItem && (
         <PantryItemModal
           item={editingItem}
@@ -301,7 +295,7 @@ export default function PantryDetailsPage() {
 
       {/* 🔹 Modal „dodać do listy zakupowej?” dla produktu, który spadł do 0 lub jest usuwany */}
       {depletedItem && (
-        <Modal onClose={closeDepletedModal}>
+        <Modal onClose={() => setDepletedItem(null)}>
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">
               {depletedItem.name} – dodać do listy zakupowej?
@@ -341,19 +335,18 @@ export default function PantryDetailsPage() {
               </div>
             )}
 
-            <div className="flex justify-end">
+            <div className="flex gap-2 justify-end">
+              {/* Jeden przycisk – zmienia label i styl zależnie od wyboru listy */}
               <Button
                 onClick={confirmDepletedAction}
-                disabled={confirmDisabled}
                 variant={selectedListId ? "primary" : "danger"}
               >
-                {primaryLabel}
+                {selectedListId ? "Dodaj do listy i usuń" : "Usuń"}
               </Button>
             </div>
           </div>
         </Modal>
       )}
-
     </div>
   );
 }
