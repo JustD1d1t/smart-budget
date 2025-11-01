@@ -22,6 +22,17 @@ type Props = {
 
 const UNITS = ["szt", "kg"];
 
+// prosta normalizacja: małe litery + usunięcie znaków diakrytycznych
+function normalizeName(s: string) {
+    return (s || "")
+        .toString()
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        // @ts-ignore – regex unicode char class
+        .replace(/\p{Diacritic}/gu, "");
+}
+
 export default function AddPantryItemForm({ pantryId, onItemAdded }: Props) {
     const [name, setName] = useState("");
     const [category, setCategory] = useState("żywność");
@@ -83,123 +94,108 @@ export default function AddPantryItemForm({ pantryId, onItemAdded }: Props) {
         if (!validate()) return;
 
         const qty = parseFloat(quantity.replace(",", "."));
+        const targetName = name.trim();
+        const normTarget = normalizeName(targetName);
 
         try {
+            // --- MERGE PO NAZWIE (ta sama spiżarnia) ---
+            // 1) Spróbuj znaleźć potencjalne dopasowania (ilike: bez rozróżniania wielkości liter)
+            //    Używam ilike na dokładnej nazwie; jeśli nic nie znajdzie, dorobię fallback z %...% i match po normalize.
+            let candidate: any | null = null;
+
+            // próba: case-insensitive exact (bez diakrytyków to i tak sprawdzimy niżej)
+            const { data: exactList, error: exactErr } = await supabase
+                .from("pantry_items")
+                .select("id, name, quantity, unit, category, expiry_date, ean")
+                .eq("pantry_id", pantryId)
+                .ilike("name", targetName)
+                .limit(5);
+
+            if (exactErr) {
+                console.error("Błąd SELECT exact by name:", exactErr.message);
+            }
+
+            // wybierz ten z dokładnym „normalize” (żeby 'Mléko' == 'mleko')
+            if (exactList && exactList.length) {
+                candidate =
+                    exactList.find((row) => normalizeName(row.name) === normTarget) || exactList[0];
+            }
+
+            // fallback: łagodniejsze wyszukiwanie — kilka wierszy z podobną nazwą, a potem match po normalize
+            if (!candidate) {
+                const { data: softList, error: softErr } = await supabase
+                    .from("pantry_items")
+                    .select("id, name, quantity, unit, category, expiry_date, ean")
+                    .eq("pantry_id", pantryId)
+                    .ilike("name", `%${targetName}%`)
+                    .limit(20);
+
+                if (softErr) {
+                    console.error("Błąd SELECT soft by name:", softErr.message);
+                } else if (softList && softList.length) {
+                    const found = softList.find((row) => normalizeName(row.name) === normTarget);
+                    if (found) candidate = found;
+                }
+            }
+
             let savedRow: any | null = null;
 
-            if (ean) {
-                // 1) Spróbuj znaleźć istniejący rekord w tej samej spiżarni z tym samym EAN
-                const { data: existing, error: selErr } = await supabase
+            if (candidate && candidate.unit === unit) {
+                // 2a) Ta sama jednostka → sumuj ilość
+                const { data: updated, error: updErr } = await supabase
                     .from("pantry_items")
-                    .select("id, quantity, unit, name, category, expiry_date, ean")
-                    .eq("pantry_id", pantryId)
-                    .eq("ean", ean)
-                    .maybeSingle();
+                    .update({
+                        quantity: (candidate.quantity ?? 0) + qty,
+                        // opcjonalnie odśwież kategorię i datę ważności:
+                        category: category || candidate.category,
+                        expiry_date: expiryDate ? expiryDate : candidate.expiry_date ?? null,
+                        // ean zostawiam istniejący lub ustaw, jeśli nowy dostarczono a brak w bazie:
+                        ean: candidate.ean ?? (ean || null),
+                    })
+                    .eq("id", candidate.id)
+                    .select()
+                    .single();
 
-                if (selErr) {
-                    console.error("Błąd SELECT by EAN:", selErr.message);
+                if (updErr) {
+                    console.error("Błąd UPDATE merge by name:", updErr.message);
+                    return;
                 }
-
-                if (existing && existing.unit === unit) {
-                    // 2a) MERGE: ta sama jednostka → sumujemy ilość (i opcjonalnie odświeżamy kategorię/datę)
-                    const { data: updated, error: updErr } = await supabase
-                        .from("pantry_items")
-                        .update({
-                            quantity: (existing.quantity ?? 0) + qty,
-                            // opcjonalne „odświeżenia”:
-                            category: category || existing.category,
-                            // jeżeli podasz nową datę — ustaw; w przeciwnym razie zostaw istniejącą:
-                            expiry_date: expiryDate ? expiryDate : existing.expiry_date ?? null,
-                            // name zwykle zostawiamy istniejące, ale możesz podmienić jeśli chcesz:
-                            // name: existing.name || name.trim(),
-                        })
-                        .eq("id", existing.id)
-                        .select()
-                        .single();
-
-                    if (updErr) {
-                        console.error("Błąd UPDATE merge by EAN:", updErr.message);
-                        return;
-                    }
-                    savedRow = updated;
-                } else if (existing && existing.unit !== unit) {
-                    // 2b) Inna jednostka → dla bezpieczeństwa utwórz osobną pozycję
-                    const { data: inserted, error: insErr } = await supabase
-                        .from("pantry_items")
-                        .insert({
-                            pantry_id: pantryId,
-                            name: name.trim(),
-                            category,
-                            quantity: qty,
-                            unit,
-                            expiry_date: expiryDate || null,
-                            ean,
-                        })
-                        .select()
-                        .single();
-
-                    if (insErr) {
-                        console.error("Błąd INSERT (unit mismatch):", insErr.message);
-                        return;
-                    }
-                    savedRow = inserted;
-                } else {
-                    // 2c) Brak istniejącego → zwykły INSERT
-                    const { data: inserted, error: insErr } = await supabase
-                        .from("pantry_items")
-                        .insert({
-                            pantry_id: pantryId,
-                            name: name.trim(),
-                            category,
-                            quantity: qty,
-                            unit,
-                            expiry_date: expiryDate || null,
-                            ean,
-                        })
-                        .select()
-                        .single();
-
-                    if (insErr) {
-                        console.error("Błąd INSERT:", insErr.message);
-                        return;
-                    }
-                    savedRow = inserted;
-                }
-
-                // 3) Utrwal w katalogu EAN → nazwa/kategoria
-                try {
-                    await upsertCatalog(ean, name.trim(), category);
-                } catch (e) {
-                    console.warn("Nie udało się zaktualizować katalogu EAN:", e);
-                }
+                savedRow = updated;
             } else {
-                // Bez EAN → zwykły INSERT
+                // 2b) Brak dopasowania po nazwie LUB inna jednostka → wstaw nowy rekord
                 const { data: inserted, error: insErr } = await supabase
                     .from("pantry_items")
                     .insert({
                         pantry_id: pantryId,
-                        name: name.trim(),
+                        name: targetName,
                         category,
                         quantity: qty,
                         unit,
                         expiry_date: expiryDate || null,
-                        ean: null,
+                        ean: ean || null,
                     })
                     .select()
                     .single();
 
                 if (insErr) {
-                    console.error("Błąd INSERT (no EAN):", insErr.message);
+                    console.error("Błąd INSERT:", insErr.message);
                     return;
                 }
                 savedRow = inserted;
             }
 
-            if (savedRow) {
-                onItemAdded(savedRow);
+            // 3) Utrwal mapowanie EAN -> nazwa/kategoria (jeśli mamy EAN)
+            if (ean) {
+                try {
+                    await upsertCatalog(ean, targetName, category);
+                } catch (e) {
+                    console.warn("Nie udało się zaktualizować katalogu EAN:", e);
+                }
             }
 
-            // reset pól
+            if (savedRow) onItemAdded(savedRow);
+
+            // reset
             setName("");
             setCategory("żywność");
             setQuantity("1");
