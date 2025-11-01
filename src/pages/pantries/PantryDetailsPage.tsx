@@ -6,7 +6,9 @@ import ItemList from "../../components/pantries/ItemList";
 import PantryItemModal from "../../components/pantries/PantryItemModal";
 import Button from "../../components/ui/Button";
 import MemberList from "../../components/ui/MemberList";
+import Modal from "../../components/ui/Modal";
 import Toast from "../../components/ui/Toast";
+import { supabase } from "../../lib/supabaseClient";
 import { usePantriesStore } from "../../stores/pantriesStore";
 
 function normalize(str: string) {
@@ -27,6 +29,11 @@ export default function PantryDetailsPage() {
   const [groupedView, setGroupedView] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [search, setSearch] = useState("");
+
+  // stan dla „spadło do 0”
+  const [depletedItem, setDepletedItem] = useState<any | null>(null);
+  const [shoppingLists, setShoppingLists] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedListId, setSelectedListId] = useState<string>("");
 
   const {
     selectedPantry,
@@ -63,7 +70,35 @@ export default function PantryDetailsPage() {
     await deletePantryItem(itemId);
   };
 
+  // pobierz listy zakupowe (na RLS i auth polecą tylko dostępne)
+  const loadShoppingLists = async () => {
+    const { data, error } = await supabase
+      .from("shopping_lists")
+      .select("id,name")
+      .order("name", { ascending: true });
+
+    if (error) {
+      console.error("Błąd pobierania list zakupowych:", error.message);
+      setShoppingLists([]);
+      return;
+    }
+    setShoppingLists((data || []) as Array<{ id: string; name: string }>);
+  };
+
+  // gdy ilość spada do 0 → pokaż modal z listami (nie aktualizuj już ilości na 0 w DB),
+  // po decyzji: (opcjonalnie) dodaj do listy, a na końcu usuń produkt ze spiżarni
   const handleQuantityChange = async (itemId: string, newQuantity: number) => {
+    if (newQuantity === 0) {
+      const item = pantryItems.find((it: any) => it.id === itemId);
+      if (!item) return;
+
+      setDepletedItem(item);
+      setSelectedListId("");
+      await loadShoppingLists();
+      return; // nie wywołujemy updateItemQuantity(0)
+    }
+
+    // standardowo aktualizuj ilość
     await updateItemQuantity(itemId, newQuantity);
   };
 
@@ -87,7 +122,6 @@ export default function PantryDetailsPage() {
 
     return pantryItems
       .filter((item: any) => {
-        // contains po nazwie (case/diacritics-insensitive)
         const matchesSearch = q.length === 0 || normalize(item.name).includes(q);
         const matchesCategory = filterCategory === "all" || item.category === filterCategory;
         return matchesSearch && matchesCategory;
@@ -104,6 +138,54 @@ export default function PantryDetailsPage() {
         return 0;
       });
   }, [pantryItems, search, filterCategory, sortBy]);
+
+  // potwierdzenie z modalem: opcjonalne dodanie do listy → usunięcie ze spiżarni
+  const confirmDepletedAction = async () => {
+    if (!depletedItem) return;
+
+    try {
+      if (selectedListId) {
+        console.log('try');
+        // dodajemy pozycję do listy zakupowej (prosty insert; dopasuj do swojej tabeli)
+        await supabase.from("shopping_items").insert({
+          list_id: selectedListId,
+          name: depletedItem.name,
+          quantity: 1, // domyślnie 1 szt – dopasuj wg potrzeb
+          unit: depletedItem.unit,
+          category: depletedItem.category,
+          // możesz dodać pantry_item_id jeśli masz taką kolumnę, albo notes
+        });
+      }
+
+      // zawsze usuwamy ze spiżarni (wymóg)
+      await deletePantryItem(depletedItem.id);
+      setToast({
+        message: selectedListId ? "Przeniesiono do listy zakupowej i usunięto ze spiżarni." : "Usunięto ze spiżarni.",
+        type: "success",
+      });
+    } catch (e: any) {
+      console.error(e);
+      setToast({ message: "Wystąpił błąd przy przenoszeniu/usuwaniu.", type: "error" });
+    } finally {
+      setDepletedItem(null);
+      setSelectedListId("");
+    }
+  };
+
+  const cancelDepletedAction = async () => {
+    // użytkownik wybrał „nie dodawaj” → tylko usuń ze spiżarni
+    if (!depletedItem) return;
+    try {
+      await deletePantryItem(depletedItem.id);
+      setToast({ message: "Usunięto ze spiżarni.", type: "success" });
+    } catch (e: any) {
+      console.error(e);
+      setToast({ message: "Błąd podczas usuwania.", type: "error" });
+    } finally {
+      setDepletedItem(null);
+      setSelectedListId("");
+    }
+  };
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -209,6 +291,49 @@ export default function PantryDetailsPage() {
           onQuantityChange={handleQuantityChange}
           onDelete={handleDeleteItem}
         />
+      )}
+
+      {/* 🔹 Modal „dodać do listy zakupowej?” dla produktu, który spadł do 0 */}
+      {depletedItem && (
+        <Modal onClose={() => setDepletedItem(null)}>
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">
+              {depletedItem.name} się skończył. Dodać do listy zakupowej?
+            </h3>
+
+            {shoppingLists.length === 0 ? (
+              <p className="text-sm text-gray-600">Brak dostępnych list zakupowych.</p>
+            ) : (
+              <div>
+                <label className="block text-sm mb-1">Wybierz listę (opcjonalnie):</label>
+                <select
+                  value={selectedListId}
+                  onChange={(e) => setSelectedListId(e.target.value)}
+                  className="border rounded p-2 w-full text-sm"
+                >
+                  <option value="">Nie dodawaj do żadnej listy</option>
+                  {shoppingLists.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div className="flex gap-2 justify-end">
+              <Button
+                className="bg-gray-200 text-gray-800 hover:bg-gray-300"
+                onClick={cancelDepletedAction}
+              >
+                Nie dodawaj (usuń ze spiżarni)
+              </Button>
+              <Button onClick={confirmDepletedAction}>
+                {selectedListId ? "Dodaj do listy i usuń" : "Usuń ze spiżarni"}
+              </Button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );
