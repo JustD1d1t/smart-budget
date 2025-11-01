@@ -4,7 +4,13 @@ type Props = React.InputHTMLAttributes<HTMLInputElement> & {
     error?: string;
 };
 
-export default function Input({ error, className = "", type = "text", ...rest }: Props) {
+export default function Input({
+    error,
+    className = "",
+    type = "text",
+    step,
+    ...rest
+}: Props) {
     const base =
         "w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500";
 
@@ -14,9 +20,17 @@ export default function Input({ error, className = "", type = "text", ...rest }:
             ? "appearance-none h-10 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
             : "";
 
+    // 🔹 jeśli to number i nie podano step — ustaw domyślnie "any"
+    const stepValue = type === "number" && step === undefined ? "any" : step;
+
     return (
         <div>
-            <input type={type} className={[base, dateFix, className].join(" ")} {...rest} />
+            <input
+                type={type}
+                step={stepValue}
+                className={[base, dateFix, className].join(" ")}
+                {...rest}
+            />
             {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
         </div>
     );

@@ -21,8 +21,8 @@ const UNITS = ["szt", "kg"];
 
 export default function AddPantryItemForm({ pantryId, onItemAdded }: Props) {
     const [name, setName] = useState("");
-    const [category, setCategory] = useState("żywność"); // zachowana domyślna kategoria
-    const [quantity, setQuantity] = useState(1);
+    const [category, setCategory] = useState("żywność");
+    const [quantity, setQuantity] = useState<string>("1"); // teraz string, by móc przechowywać "" (pusty)
     const [unit, setUnit] = useState("szt");
     const [expiryDate, setExpiryDate] = useState("");
 
@@ -33,6 +33,8 @@ export default function AddPantryItemForm({ pantryId, onItemAdded }: Props) {
 
     const handleSubmit = async () => {
         let isValid = true;
+
+        const numericQty = parseFloat(quantity.replace(",", ".")); // konwersja z przecinkiem
 
         if (!name.trim()) {
             setNameError("Nazwa produktu jest wymagana.");
@@ -48,7 +50,7 @@ export default function AddPantryItemForm({ pantryId, onItemAdded }: Props) {
             setCategoryError("");
         }
 
-        if (quantity <= 0) {
+        if (!quantity || isNaN(numericQty) || numericQty <= 0) {
             setQuantityError("Ilość musi być większa od zera.");
             isValid = false;
         } else {
@@ -70,7 +72,7 @@ export default function AddPantryItemForm({ pantryId, onItemAdded }: Props) {
                 pantry_id: pantryId,
                 name: name.trim(),
                 category,
-                quantity,
+                quantity: numericQty,
                 unit,
                 expiry_date: expiryDate || null,
             })
@@ -88,7 +90,7 @@ export default function AddPantryItemForm({ pantryId, onItemAdded }: Props) {
         // reset pól
         setName("");
         setCategory("żywność");
-        setQuantity(1);
+        setQuantity("1");
         setUnit("szt");
         setExpiryDate("");
     };
@@ -114,7 +116,10 @@ export default function AddPantryItemForm({ pantryId, onItemAdded }: Props) {
                 <Input
                     type="number"
                     value={quantity}
-                    onChange={(e) => setQuantity(Number(e.target.value))}
+                    onChange={(e) => {
+                        const val = e.target.value.replace(",", ".");
+                        setQuantity(val);
+                    }}
                     placeholder="Ilość"
                     error={quantityError}
                     className="w-1/2"
