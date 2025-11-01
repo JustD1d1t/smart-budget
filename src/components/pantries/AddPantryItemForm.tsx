@@ -1,94 +1,134 @@
-import React, { useMemo, useState } from "react";
-import { PANTRY_ITEMS_CATEGORIES } from "../../utils/categories";
+import { useState } from "react";
+import { supabase } from "../../lib/supabaseClient";
+import { CATEGORIES } from "../../utils/categories";
+import Button from "../ui/Button";
+import Input from "../ui/Input";
 import Select from "../ui/Select";
 
-interface AddPantryItemFormProps {
+type Props = {
     pantryId: string;
-    onItemAdded: (item: any) => void | Promise<void>;
-}
+    onItemAdded: (item: {
+        id: string;
+        name: string;
+        category: string;
+        quantity: number;
+        unit: string;
+        expiry_date?: string | null;
+    }) => void;
+};
 
 const UNITS = ["szt", "kg"];
 
-export default function AddPantryItemForm({ pantryId, onItemAdded }: AddPantryItemFormProps) {
+export default function AddPantryItemForm({ pantryId, onItemAdded }: Props) {
     const [name, setName] = useState("");
-    const [category, setCategory] = useState("żywność");
+    const [category, setCategory] = useState("żywność"); // zachowana domyślna kategoria
     const [quantity, setQuantity] = useState(1);
     const [unit, setUnit] = useState("szt");
     const [expiryDate, setExpiryDate] = useState("");
 
-    const canSubmit = useMemo(() => {
-        const validQty = Number.isFinite(quantity) && quantity > 0;
-        return (
-            name.trim().length > 0 &&
-            category.trim().length > 0 &&
-            unit.trim().length > 0 &&
-            validQty
-        );
-    }, [name, category, unit, quantity]);
+    const [nameError, setNameError] = useState("");
+    const [categoryError, setCategoryError] = useState("");
+    const [quantityError, setQuantityError] = useState("");
+    const [unitError, setUnitError] = useState("");
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!canSubmit) return;
+    const handleSubmit = async () => {
+        let isValid = true;
 
-        const newItem = {
-            name: name.trim(),
-            category,
-            quantity: Number(quantity),
-            unit,
-            expiry_date: expiryDate || null,
-            pantry_id: pantryId,
-        };
+        if (!name.trim()) {
+            setNameError("Nazwa produktu jest wymagana.");
+            isValid = false;
+        } else {
+            setNameError("");
+        }
 
-        await onItemAdded(newItem);
+        if (!category) {
+            setCategoryError("Wybierz kategorię.");
+            isValid = false;
+        } else {
+            setCategoryError("");
+        }
 
-        // reset formularza (z zachowaniem domyślnej kategorii)
+        if (quantity <= 0) {
+            setQuantityError("Ilość musi być większa od zera.");
+            isValid = false;
+        } else {
+            setQuantityError("");
+        }
+
+        if (!unit) {
+            setUnitError("Wybierz jednostkę.");
+            isValid = false;
+        } else {
+            setUnitError("");
+        }
+
+        if (!isValid) return;
+
+        const { data, error } = await supabase
+            .from("pantry_items")
+            .insert({
+                pantry_id: pantryId,
+                name: name.trim(),
+                category,
+                quantity,
+                unit,
+                expiry_date: expiryDate || null,
+            })
+            .select()
+            .single();
+
+        if (error) {
+            console.error("Błąd dodawania produktu:", error.message);
+            return;
+        }
+
+        // 🔹 Najpierw zapis w Supabase, dopiero potem w store
+        onItemAdded(data);
+
+        // reset pól
         setName("");
-        setCategory("Żywność");
+        setCategory("żywność");
         setQuantity(1);
         setUnit("szt");
         setExpiryDate("");
     };
 
     return (
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-            {/* Nazwa */}
-            <input
-                type="text"
+        <div className="space-y-2">
+            <Input
                 placeholder="Nazwa produktu"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="border rounded p-2"
-                required
+                error={nameError}
             />
 
-            {/* Kategoria (Select) */}
             <Select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                options={PANTRY_ITEMS_CATEGORIES}
-                placeholder="Kategoria"
+                options={CATEGORIES}
+                placeholder="Wybierz kategorię"
+                error={categoryError}
             />
 
-            {/* Ilość + Jednostka */}
-            <div className="flex gap-2">
-                <input
+            <div className="flex gap-2 items-start">
+                <Input
                     type="number"
-                    placeholder="Ilość"
                     value={quantity}
-                    onChange={(e) => setQuantity(Math.max(0, Number(e.target.value)))}
-                    className="border rounded p-2 w-1/2"
-                    min={0}
-                    required
+                    onChange={(e) => setQuantity(Number(e.target.value))}
+                    placeholder="Ilość"
+                    error={quantityError}
+                    className="w-1/2"
                 />
                 <Select
                     value={unit}
                     onChange={(e) => setUnit(e.target.value)}
                     options={UNITS}
-                    placeholder="Jednostka"
+                    placeholder="-- wybierz jednostkę --"
+                    error={unitError}
+                    className="w-1/2"
                 />
             </div>
 
-            {/* Data przydatności + czyść */}
             <div className="flex items-center gap-2">
                 <input
                     type="date"
@@ -109,16 +149,7 @@ export default function AddPantryItemForm({ pantryId, onItemAdded }: AddPantryIt
                 )}
             </div>
 
-            <button
-                type="submit"
-                disabled={!canSubmit}
-                className={`rounded p-2 transition text-white ${canSubmit
-                        ? "bg-blue-600 hover:bg-blue-700"
-                        : "bg-blue-300 cursor-not-allowed"
-                    }`}
-            >
-                Dodaj produkt
-            </button>
-        </form>
+            <Button onClick={handleSubmit}>➕ Dodaj produkt</Button>
+        </div>
     );
 }
