@@ -174,27 +174,24 @@ export default function PantryDetailsPage() {
       console.error(e);
       setToast({ message: "Wystąpił błąd przy przenoszeniu/usuwaniu.", type: "error" });
     } finally {
-      setDepletedItem(null);
-      setSelectedListId("");
-      setShoppingQuantity("1");
+      closeDepletedModal();
     }
   };
 
-  // Rezygnacja: nie dodawaj do listy → tylko usuń ze spiżarni
-  const cancelDepletedAction = async () => {
-    if (!depletedItem) return;
-    try {
-      await deletePantryItem(depletedItem.id);
-      setToast({ message: "Usunięto ze spiżarni.", type: "success" });
-    } catch (e: any) {
-      console.error(e);
-      setToast({ message: "Błąd podczas usuwania.", type: "error" });
-    } finally {
-      setDepletedItem(null);
-      setSelectedListId("");
-      setShoppingQuantity("1");
-    }
+  // Zamknięcie modala bez akcji
+  const closeDepletedModal = () => {
+    setDepletedItem(null);
+    setSelectedListId("");
+    setShoppingQuantity("1");
   };
+
+  // Etykieta i stan JEDYNEGO przycisku
+  const primaryLabel = selectedListId
+    ? "Usuń i dodaj do listy zakupowej"
+    : "Usuń";
+
+  const confirmDisabled =
+    !!selectedListId && !(shoppingQuantity && parseFloat(shoppingQuantity) > 0);
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -304,7 +301,7 @@ export default function PantryDetailsPage() {
 
       {/* 🔹 Modal „dodać do listy zakupowej?” dla produktu, który spadł do 0 lub jest usuwany */}
       {depletedItem && (
-        <Modal onClose={() => setDepletedItem(null)}>
+        <Modal onClose={closeDepletedModal}>
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">
               {depletedItem.name} – dodać do listy zakupowej?
@@ -344,20 +341,19 @@ export default function PantryDetailsPage() {
               </div>
             )}
 
-            <div className="flex gap-2 justify-end">
+            <div className="flex justify-end">
               <Button
-                className="bg-gray-200 text-gray-800 hover:bg-gray-300"
-                onClick={cancelDepletedAction}
+                onClick={confirmDepletedAction}
+                disabled={confirmDisabled}
+                variant={selectedListId ? "primary" : "danger"}
               >
-                Nie dodawaj (usuń)
-              </Button>
-              <Button onClick={confirmDepletedAction}>
-                {selectedListId ? "Dodaj i usuń" : "Usuń"}
+                {primaryLabel}
               </Button>
             </div>
           </div>
         </Modal>
       )}
+
     </div>
   );
 }
