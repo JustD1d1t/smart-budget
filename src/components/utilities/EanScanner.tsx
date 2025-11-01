@@ -1,6 +1,4 @@
-// src/components/utilities/EanScanner.tsx
 import { BrowserMultiFormatReader } from "@zxing/browser";
-import { NotFoundException } from "@zxing/library"; // ✅ ważne
 import { useEffect, useRef, useState } from "react";
 import Button from "../ui/Button";
 import Modal from "../ui/Modal";
@@ -35,13 +33,11 @@ export default function EanScanner({ open, onClose, onDetected }: Props) {
                 await reader.decodeFromVideoDevice(deviceId, videoRef.current!, (result, err) => {
                     if (result) {
                         const code = result.getText().trim();
-                        // akceptujemy EAN-8 (8 cyfr) i EAN-13 (13 cyfr)
                         if (/^\d{8}$|^\d{13}$/.test(code)) {
                             onDetected(code);
                         }
-                    } else if (err && !(err instanceof NotFoundException)) {
-                        // inne błędy logujemy (NotFoundException == brak kodu w klatce — normalne)
-                        console.warn(err);
+                    } else if (err) {
+                        // ignorujemy „brak kodu w klatce”
                     }
                 });
             } catch (e: any) {
@@ -51,7 +47,6 @@ export default function EanScanner({ open, onClose, onDetected }: Props) {
         };
 
         setup();
-
         return () => {
             try {
                 readerRef.current?.reset();
@@ -65,17 +60,12 @@ export default function EanScanner({ open, onClose, onDetected }: Props) {
         <Modal onClose={onClose}>
             <div className="space-y-4">
                 <h3 className="text-lg font-semibold">Zeskanuj kod EAN</h3>
-
                 {error && <p className="text-sm text-red-600">{error}</p>}
-
                 <div className="rounded overflow-hidden bg-black flex justify-center">
                     <video ref={videoRef} className="w-[90%] max-w-[640px]" autoPlay muted playsInline />
                 </div>
-
                 <div className="flex justify-end">
-                    <Button variant="ghost" onClick={onClose}>
-                        Zamknij
-                    </Button>
+                    <Button variant="ghost" onClick={onClose}>Zamknij</Button>
                 </div>
             </div>
         </Modal>
