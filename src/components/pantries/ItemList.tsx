@@ -1,6 +1,4 @@
-import { useState } from "react";
 import Button from "../ui/Button";
-import PantryItemModal from "./PantryItemModal";
 
 type Item = {
   id: string;
@@ -19,11 +17,6 @@ type Props = {
 };
 
 export default function ItemList({ items, onEdit, onDelete, onQuantityChange }: Props) {
-  const [activeItem, setActiveItem] = useState<Item | null>(null);
-
-  const openActions = (item: Item) => setActiveItem(item);
-  const closeActions = () => setActiveItem(null);
-
   const isExpired = (d?: string | null) => {
     if (!d) return false;
     const date = new Date(d);
@@ -37,18 +30,13 @@ export default function ItemList({ items, onEdit, onDelete, onQuantityChange }: 
     <>
       <ul className="divide-y">
         {items.map((item) => (
-          <li
-            key={item.id}
-            className="flex items-center gap-3 py-2 text-sm"
-          >
-            {/* Lewa kolumna: nazwa + data ważności pod spodem */}
+          <li key={item.id} className="flex items-center gap-3 py-2 text-sm">
+            {/* Lewa kolumna */}
             <div className="min-w-0 flex-1">
               <span className="font-medium truncate block">{item.name}</span>
               {item.expiry_date && (
                 <span
-                  className={`text-xs mt-0.5 block ${isExpired(item.expiry_date)
-                      ? "text-red-600"
-                      : "text-gray-500"
+                  className={`text-xs mt-0.5 block ${isExpired(item.expiry_date) ? "text-red-600" : "text-gray-500"
                     }`}
                 >
                   do: {item.expiry_date}
@@ -56,7 +44,7 @@ export default function ItemList({ items, onEdit, onDelete, onQuantityChange }: 
               )}
             </div>
 
-            {/* Środek: kompaktowy stepper */}
+            {/* Środek: stepper */}
             <div className="flex items-center gap-2">
               <Button
                 variant="ghost"
@@ -82,32 +70,16 @@ export default function ItemList({ items, onEdit, onDelete, onQuantityChange }: 
             {/* Prawa: akcje */}
             <div className="flex items-center gap-1">
               <div className="hidden sm:flex gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  aria-label="Edytuj"
-                  onClick={() => onEdit(item)}
-                  title="Edytuj"
-                >
+                <Button variant="ghost" size="sm" aria-label="Edytuj" onClick={() => onEdit(item)} title="Edytuj">
                   ✏️
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  aria-label="Usuń"
-                  onClick={() => onDelete(item.id)}
-                  title="Usuń"
-                >
+                <Button variant="ghost" size="sm" aria-label="Usuń" onClick={() => onDelete(item.id)} title="Usuń">
                   🗑
                 </Button>
               </div>
               <div className="sm:hidden">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  aria-label="Więcej"
-                  onClick={() => openActions(item)}
-                >
+                {/* Na mobile też otwieramy JEDEN modal rodzica */}
+                <Button variant="ghost" size="sm" aria-label="Więcej" onClick={() => onEdit(item)}>
                   ⋯
                 </Button>
               </div>
@@ -115,25 +87,6 @@ export default function ItemList({ items, onEdit, onDelete, onQuantityChange }: 
           </li>
         ))}
       </ul>
-
-      {/* Modal akcji dla mobile */}
-      {activeItem && (
-        <PantryItemModal
-          view="actions"
-          item={activeItem}
-          onChange={(updated) => setActiveItem(updated)}
-          onSave={() => {
-            onEdit(activeItem);
-            closeActions();
-          }}
-          onClose={closeActions}
-          onQuantityChange={onQuantityChange}
-          onDelete={(id) => {
-            onDelete(id);
-            closeActions();
-          }}
-        />
-      )}
     </>
   );
 }
